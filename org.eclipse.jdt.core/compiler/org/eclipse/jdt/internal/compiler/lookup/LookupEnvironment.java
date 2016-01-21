@@ -98,7 +98,7 @@ public class LookupEnvironment implements ProblemReasons, TypeConstants {
 	public MethodBinding arrayClone;
 
 	private ArrayList missingTypes;
-	Set typesBeingConnected;
+	Set<SourceTypeBinding> typesBeingConnected;
 	public boolean isProcessingAnnotations = false;
 	public boolean mayTolerateMissingType = false;
 
@@ -138,7 +138,7 @@ public LookupEnvironment(ITypeRequestor typeRequestor, CompilerOptions globalOpt
 	this.missingTypes = null;
 	this.accessRestrictions = new HashMap(3);
 	this.classFilePool = ClassFilePool.newInstance();
-	this.typesBeingConnected = new HashSet();
+	this.typesBeingConnected = new HashSet<>();
 	this.typeSystem = this.globalOptions.sourceLevel >= ClassFileConstants.JDK1_8 && this.globalOptions.storeAnnotations ? new AnnotatableTypeSystem(this) : new TypeSystem(this);
 }
 
@@ -342,6 +342,10 @@ public void completeTypeBindings(CompilationUnitDeclaration[] parsedUnits, boole
 
 	this.unitBeingCompleted = null;
 }
+/**
+ * NB: for source >= 1.5 the return type is not correct: shows j.l.Object but should show T[].
+ * See references to {@link #arrayClone} for code that compensates for this mismatch.
+ */
 public MethodBinding computeArrayClone(MethodBinding objectClone) {
 	if (this.arrayClone == null) {
 		this.arrayClone = new MethodBinding(
@@ -829,6 +833,7 @@ public ParameterizedGenericMethodBinding createParameterizedGenericMethod(Method
 				ParameterizedGenericMethodBinding cachedMethod = cachedInfo[index];
 				if (cachedMethod == null) break nextCachedMethod;
 				if (cachedMethod.isRaw) continue nextCachedMethod;
+				if (cachedMethod.inferredWithUncheckedConversion != inferredWithUncheckedConversion) continue nextCachedMethod;
 				TypeBinding[] cachedArguments = cachedMethod.typeArguments;
 				int cachedArgLength = cachedArguments == null ? 0 : cachedArguments.length;
 				if (argLength != cachedArgLength) continue nextCachedMethod;
@@ -1154,7 +1159,7 @@ public boolean usesNullTypeAnnotations() {
 
 private void initializeUsesNullTypeAnnotation() {
 	this.globalOptions.useNullTypeAnnotations = Boolean.FALSE;
-	if (!this.globalOptions.isAnnotationBasedNullAnalysisEnabled || this.globalOptions.sourceLevel < ClassFileConstants.JDK1_8)
+	if (!this.globalOptions.isAnnotationBasedNullAnalysisEnabled || this.globalOptions.originalSourceLevel < ClassFileConstants.JDK1_8)
 		return;
 	ReferenceBinding nullable = this.nullableAnnotation != null ? this.nullableAnnotation.getAnnotationType() : getType(this.getNullableAnnotationName());
 	ReferenceBinding nonNull = this.nonNullAnnotation != null ? this.nonNullAnnotation.getAnnotationType() : getType(this.getNonNullAnnotationName());

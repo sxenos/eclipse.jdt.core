@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2011, 2015 IBM Corporation and others.
+ * Copyright (c) 2011, 2016 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -1591,6 +1591,8 @@ public void test055() {
 }
 public void test056() {
 	  this.runConformTest(
+		false /* skipJavac */,
+		JavacTestOptions.Excuse.JavacGeneratesIncorrectCode,
 	    new String[] {
 	      "X.java",
 	      "interface I {\n" +
@@ -1899,6 +1901,8 @@ public void testReferenceExpressionInference2() {
 
 public void testReferenceExpressionInference3a() {
 	runConformTest(
+		false /* skipJavac*/,
+		JavacTestOptions.Excuse.JavacDoesNotCompileCorrectSource,
 		new String[] {
 			"X.java",
 			"interface I<E,F> {\n" +
@@ -1912,7 +1916,7 @@ public void testReferenceExpressionInference3a() {
 			"	<Z> Z i2s (Integer i) { return null; }\n" +
 			"	<V,W extends Number> W bar(V v) { return null; }\n" +
 			"}\n"
-		});
+		}, null);
 }
 
 // previous test demonstrates that a solution exists, just inference doesn't find it.
@@ -4414,8 +4418,6 @@ public void test434297() {
 }
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=436542 : Eclipse 4.4 compiler generates "bad class file" according to javac
 public void test436542() throws Exception {
-	String jreDirectory = Util.getJREDirectory();
-	String jfxJar = Util.toNativePath(jreDirectory + "/lib/ext/jfxrt.jar");
 	this.runConformTest(
 		new String[] {
 			"Utility.java",
@@ -4423,42 +4425,35 @@ public void test436542() throws Exception {
 			"import java.util.List;\n" + 
 			"import java.util.function.Function;\n" + 
 			"import java.util.stream.Collectors;\n" + 
-			"import javafx.collections.ListChangeListener;\n" + 
-			"import javafx.collections.ObservableList;\n" + 
 			"public class Utility {\n" + 
-			"	public static void main(String[] args) {\n" + 
-			"		System.out.println(\"Success\");\n" + 
-			"	}\n" + 
+			"    public static void main(String[] args) {\n" + 
+			"        System.out.println(\"Success\");\n" + 
+			"    }\n" + 
 			"    public static <T, R> List<R> mapList(Collection<T> original, Function<T, R> func) {\n" + 
 			"        return original.stream().map(func).collect(Collectors.toList());\n" + 
 			"    }\n" + 
-			"    /**\n" + 
-			"     * \"Binds\" the destination list to the observable source list with a transformation function applied.\n" + 
-			"     * Whenever the source list changes, the destination list is altered to match by applying\n" + 
-			"     * the given function to each element in the source list.\n" + 
-			"     */\n" + 
 			"    public static <S, T> void bindMap(List<T> dest, ObservableList<S> src, Function<S, T> func) {\n" + 
-			"        dest.clear();\n" + 
 			"        dest.addAll(mapList(src, func));\n" + 
 			"        src.addListener((ListChangeListener<S>) changes -> {\n" + 
-			"            while (changes.next()) {\n" + 
-			"                if (changes.wasPermutated() || changes.wasUpdated()) {\n" + 
-			"                    // Same code for updated, replaced and permutation, just recalc the range:\n" + 
-			"                    for (int i = changes.getFrom(); i < changes.getTo(); i++)\n" + 
-			"                        dest.set(i, func.apply(src.get(i)));\n" + 
-			"                } else {\n" + 
-			"                    for (int i = 0; i < changes.getRemovedSize(); i++)\n" + 
-			"                        dest.remove(changes.getFrom());\n" + 
-			"                    for (int i = 0; i < changes.getAddedSubList().size();i++)\n" + 
-			"                        dest.add(i + changes.getFrom(), func.apply(changes.getAddedSubList().get(i)));\n" + 
-			"                }\n" + 
-			"            }\n" + 
+			"            for (int i = changes.getFrom(); i < changes.getTo(); i++)\n" + 
+			"                dest.set(i, func.apply(src.get(i)));\n" + 
 			"        });\n" + 
+			"    }\n" + 
+			"    public interface ObservableList<E> extends List<E> {\n" + 
+			"        public void addListener(ListChangeListener<? super E> listener);\n" + 
+			"    }\n" + 
+			"    @FunctionalInterface\n" + 
+			"    public interface ListChangeListener<E> {\n" + 
+			"        public abstract static class Change<E> {\n" + 
+			"            public abstract int getFrom();\n" + 
+			"            public abstract int getTo();\n" + 
+			"        }\n" + 
+			"        public void onChanged(Change<? extends E> c);\n" + 
 			"    }\n" + 
 			"}",
 		},
 		"Success",
-		Util.concatWithClassLibs(new String[]{jfxJar,OUTPUT_DIR}, false),
+		Util.concatWithClassLibs(new String[]{OUTPUT_DIR}, false),
 		true,
 		null);
 	IClassFileReader classFileReader = ToolFactory.createDefaultClassFileReader(OUTPUT_DIR + File.separator + "Utility.class", IClassFileReader.ALL);
@@ -5779,6 +5774,113 @@ public void test478533a() {
 	"	         ^^^^^^^^^^^^^^\n" +
 	"The type B from the descriptor computed for the target context is not visible here.  \n" +
 	"----------\n");
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=477263 [1.8][compiler] No enclosing instance of the type Outer is accessible in scope for method reference
+public void test477263() {
+	this.runConformTest(
+		new String[] {
+			"Test.java",
+			"import java.util.function.Function;\n" + 
+			"public interface Test<T> {\n" + 
+			"    static <K> void test(Function<?, ? extends K> function) {\n" + 
+			"        class Outer {\n" + 
+			"        	Outer(K k) {}\n" + 
+			"            class Inner {\n" + 
+			"                public Inner(K k) {}\n" + 
+			"                private void method(K k) {\n" + 
+			"                    System.out.println(function.apply(null));\n" + 
+			"                    Function<K, Inner> f = Inner::new;\n" + 
+			"                    Function<K, Outer> f2 = Outer::new;\n" + 
+			"                }\n" + 
+			"            }\n" + 
+			"        }\n" + 
+			"        new Outer(null).new Inner(null).method(null);\n" + 
+			"    }\n" + 
+			"    public static void main(String[] args) {\n" + 
+			"		Test.test((k) -> \"Success\");\n" + 
+			"	}\n" + 
+			"}"
+	},
+	"Success");
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=477263 [1.8][compiler] No enclosing instance of the type Outer is accessible in scope for method reference
+public void test477263a() {
+	this.runConformTest(
+		new String[] {
+			"X.java",
+			"interface I {\n" + 
+			"	X makeX(int x);\n" + 
+			"}\n" + 
+			"public class X {\n" + 
+			"	void foo() {\n" + 
+			"		int local = 10;\n" + 
+			"		class Y extends X {\n" + 
+			"			class Z extends X  {\n" + 
+			"				private Z(int z) {\n" + 
+			"				}\n" + 
+			"				private Z() {}\n" + 
+			"			}\n" + 
+			"			private Y(int y) {\n" + 
+			"				System.out.println(y);\n" + 
+			"			}\n" + 
+			"			 Y() {\n" + 
+			"			}\n" + 
+			"		}\n" + 
+			"		I i = Y :: new;\n" + 
+			"		i.makeX(local);\n" + 
+			"	}\n" + 
+			"	private X(int x) {\n" + 
+			"	}\n" + 
+			"	X() {\n" + 
+			"	}\n" + 
+			"	public static void main(String[] args) {\n" + 
+			"		new X().foo();\n" + 
+			"	}\n" + 
+			"}"
+	},
+	"10");
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=477263 [1.8][compiler] No enclosing instance of the type Outer is accessible in scope for method reference
+public void test477263b() {
+	this.runConformTest(
+		new String[] {
+			"X.java",
+			"interface I {\n" + 
+			"	X makeX(int x);\n" + 
+			"}\n" + 
+			"public class X {\n" + 
+			"	void foo() {\n" + 
+			"		int local = 10;\n" + 
+			"		class Y extends X {\n" + 
+			"			class Z extends X  {\n" + 
+			"				private Z(int z) {\n" + 
+			"					System.out.println(local);\n" + 
+			"				}\n" + 
+			"				void f(int in) {\n" + 
+			"					I i2 = Z::new;\n" + 
+			"					i2.makeX(in);\n" + 
+			"				}\n" + 
+			"				private Z() {}\n" + 
+			"			}\n" + 
+			"			private Y(int y) {\n" + 
+			"				System.out.println(\"Y\");\n" + 
+			"			}\n" + 
+			"			 Y() {\n" + 
+			"			}\n" + 
+			"		}\n" + 
+			"		new Y().new Z().f(0);\n" + 
+			"	}\n" + 
+			"	private X(int x) {\n" + 
+			"		System.out.println(x);\n" + 
+			"	}\n" + 
+			"	X() {\n" + 
+			"	}\n" + 
+			"	public static void main(String[] args) {\n" + 
+			"		new X().foo();\n" + 
+			"	}\n" + 
+			"}"
+	},
+	"10");
 }
 public static Class testClass() {
 	return LambdaExpressionsTest.class;
