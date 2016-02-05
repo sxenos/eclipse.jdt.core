@@ -235,6 +235,8 @@ public class NullAnnotationMatching {
 							long providedBits = validNullTagBits(providedDimsTagBits[i]);
 							if (i == 0 && requiredBits == TagBits.AnnotationNullable && nullStatus != -1 && mode.requiredNullableMatchesAll()) {
 								// toplevel nullable array: no need to check 
+								if (nullStatus == FlowInfo.NULL)
+									break; // null value has no details
 							} else {
 								if (i > 0)
 									currentNullStatus = -1; // don't use beyond the outermost dimension
@@ -261,7 +263,7 @@ public class NullAnnotationMatching {
 					if (severity == 0 && (providedBits & TagBits.AnnotationNonNull) != 0)
 						okStatus = NullAnnotationMatching.NULL_ANNOTATIONS_OK_NONNULL;
 				}
-				if (severity < 2) {
+				if (severity < 2 && nullStatus != FlowInfo.NULL) {  // null value has no details
 					TypeBinding providedSuper = providedType.findSuperTypeOriginatingFrom(requiredType);
 					TypeBinding providedSubstituteSuper = providedSubstitute != null ? providedSubstitute.findSuperTypeOriginatingFrom(requiredType) : null;
 					if(severity == 1 && requiredType.isTypeVariable() && providedType.isTypeVariable() && (providedSuper == requiredType || providedSubstituteSuper == requiredType)) { //$IDENTITY-COMPARISON$
@@ -311,14 +313,14 @@ public class NullAnnotationMatching {
 				// when providing exactly the lower bound of the required type we're definitely fine:
 				TypeBinding lowerBound = ((CaptureBinding)requiredType).lowerBound;
 				if (lowerBound != null && areSameTypes(lowerBound, providedType, providedSubstitute))
-					return true;
+					return (requiredType.tagBits & TagBits.AnnotationNullMASK) == (providedType.tagBits & TagBits.AnnotationNullMASK);
 			} else if (requiredType.kind() == Binding.TYPE_PARAMETER && requiredType == providedSubstitute) { //$IDENTITY-COMPARISON$
 				return true;
 			} else if (providedType instanceof CaptureBinding) {
 				// when requiring exactly the upper bound of the provided type we're fine, too:
 				TypeBinding upperBound = ((CaptureBinding)providedType).upperBound();
 				if (upperBound != null && areSameTypes(requiredType, upperBound, providedSubstitute))
-					return true;
+					return (requiredType.tagBits & TagBits.AnnotationNullMASK) == (providedType.tagBits & TagBits.AnnotationNullMASK);
 			}
 			return false;
 		}
