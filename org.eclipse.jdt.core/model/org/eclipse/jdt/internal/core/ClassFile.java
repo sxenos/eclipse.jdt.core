@@ -32,13 +32,47 @@ import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.Path;
 import org.eclipse.core.runtime.Status;
-import org.eclipse.jdt.core.*;
+import org.eclipse.jdt.core.CompletionRequestor;
+import org.eclipse.jdt.core.IBuffer;
+import org.eclipse.jdt.core.IClassFile;
+import org.eclipse.jdt.core.IClasspathEntry;
+import org.eclipse.jdt.core.ICodeAssist;
+import org.eclipse.jdt.core.ICodeCompletionRequestor;
+import org.eclipse.jdt.core.ICompilationUnit;
+import org.eclipse.jdt.core.ICompletionRequestor;
+import org.eclipse.jdt.core.IJavaElement;
+import org.eclipse.jdt.core.IJavaModelStatus;
+import org.eclipse.jdt.core.IJavaModelStatusConstants;
+import org.eclipse.jdt.core.IJavaProject;
+import org.eclipse.jdt.core.IMember;
+import org.eclipse.jdt.core.IPackageFragment;
+import org.eclipse.jdt.core.IPackageFragmentRoot;
+import org.eclipse.jdt.core.IParent;
+import org.eclipse.jdt.core.IProblemRequestor;
+import org.eclipse.jdt.core.ISourceRange;
+import org.eclipse.jdt.core.ISourceReference;
+import org.eclipse.jdt.core.IType;
+import org.eclipse.jdt.core.ITypeRoot;
+import org.eclipse.jdt.core.JavaConventions;
+import org.eclipse.jdt.core.JavaCore;
+import org.eclipse.jdt.core.JavaModelException;
+import org.eclipse.jdt.core.Signature;
+import org.eclipse.jdt.core.SourceRange;
+import org.eclipse.jdt.core.WorkingCopyOwner;
 import org.eclipse.jdt.core.compiler.IProblem;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileReader;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFormatException;
 import org.eclipse.jdt.internal.compiler.env.IBinaryType;
 import org.eclipse.jdt.internal.compiler.env.IDependent;
 import org.eclipse.jdt.internal.compiler.util.SuffixConstants;
+import org.eclipse.jdt.internal.core.nd.IReader;
+import org.eclipse.jdt.internal.core.nd.Nd;
+import org.eclipse.jdt.internal.core.nd.db.IndexException;
+import org.eclipse.jdt.internal.core.nd.java.JavaIndex;
+import org.eclipse.jdt.internal.core.nd.java.NdResourceFile;
+import org.eclipse.jdt.internal.core.nd.java.TypeRef;
+import org.eclipse.jdt.internal.core.nd.java.model.IndexBinaryType;
+import org.eclipse.jdt.internal.core.nd.util.CharArrayUtils;
 import org.eclipse.jdt.internal.core.util.MementoTokenizer;
 import org.eclipse.jdt.internal.core.util.Util;
 
@@ -347,7 +381,40 @@ public byte[] getBytes() throws JavaModelException {
 		return Util.getResourceContentsAsByteArray(file);
 	}
 }
+
 private IBinaryType getJarBinaryTypeInfo(PackageFragment pkg, boolean fullyInitialize) throws CoreException, IOException, ClassFormatException {
+	// If the new index is enabled, check if we have this class file cached in the index already
+	if (JavaIndex.isEnabled()) {
+		IPath location = JavaIndex.getLocationForElement(pkg.getParent());
+		JavaIndex index = JavaIndex.getIndex();
+		Nd nd = index.getNd();
+
+		// We don't currently cache package-info files in the index
+		if (location != null && !this.name.equals("package-info")) { //$NON-NLS-1$
+			String locationString = location.toString();
+			// Acquire a read lock on the index
+			try (IReader lock = nd.acquireReadLock()) {
+				NdResourceFile file = index.getResourceFile(locationString);
+
+				if (file != null && file.isDoneIndexing()) {
+					// If this file is in the index and its fingerprint matches the content most recently indexed
+					// then read our result from the index
+					if (file.getFingerprint().test(location.toFile(), null).matches()) {
+						char[] fieldDescriptor = CharArrayUtils.concat(new char[] { 'L' },
+								Util.concatWith(pkg.names, this.name, '/').toCharArray(),
+								new char[] { ';' });
+
+						return new IndexBinaryType(
+								TypeRef.create(nd, locationString.toCharArray(), fieldDescriptor));
+					}
+				}
+			} catch (IndexException e) {
+				// Index corrupted. Rebuild it.
+				index.rebuildIndex();
+			}
+		}
+	}
+
 	JarPackageFragmentRoot root = (JarPackageFragmentRoot) pkg.getParent();
 	ZipFile zip = null;
 	ZipFile annotationZip = null;
@@ -366,10 +433,10 @@ private IBinaryType getJarBinaryTypeInfo(PackageFragment pkg, boolean fullyIniti
 					IProject project = javaProject.getProject();
 					IPath externalAnnotationPath = ClasspathEntry.getExternalAnnotationPath(entry, project, false); // unresolved for use in ExternalAnnotationTracker
 					if (externalAnnotationPath != null)
-						setupExternalAnnotationProvider(project, externalAnnotationPath, annotationZip, reader, 
+						setupExternalAnnotationProvider(project, externalAnnotationPath, annotationZip, reader,
 								entryName.substring(0, entryName.length() - SuffixConstants.SUFFIX_CLASS.length));
 				}
-			} 
+			}
 			return reader;
 		}
 	} finally {
@@ -395,7 +462,7 @@ private void setupExternalAnnotationProvider(IProject project, final IPath exter
 	String resolvedPath;
 	if (resource.exists()) {
 		if (resource.isVirtual()) {
-			Util.log(new Status(IStatus.ERROR, JavaCore.PLUGIN_ID, 
+			Util.log(new Status(IStatus.ERROR, JavaCore.PLUGIN_ID,
 					"Virtual resource "+externalAnnotationPath+" cannot be used as annotationpath for project "+project.getName())); //$NON-NLS-1$ //$NON-NLS-2$
 			return;
 		}
