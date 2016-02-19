@@ -123,6 +123,7 @@ public ICompilationUnit becomeWorkingCopy(IProblemRequestor problemRequestor, Wo
  * @see Openable
  * @see Signature
  */
+@Override
 protected boolean buildStructure(OpenableElementInfo info, IProgressMonitor pm, Map newElements, IResource underlyingResource) throws JavaModelException {
 	IBinaryType typeInfo = getBinaryTypeInfo((IFile) underlyingResource);
 	if (typeInfo == null) {
@@ -146,6 +147,7 @@ protected boolean buildStructure(OpenableElementInfo info, IProgressMonitor pm, 
  * @see ICodeAssist#codeComplete(int, ICompletionRequestor)
  * @deprecated
  */
+@Deprecated
 public void codeComplete(int offset, ICompletionRequestor requestor) throws JavaModelException {
 	codeComplete(offset, requestor, DefaultWorkingCopyOwner.PRIMARY);
 }
@@ -153,6 +155,7 @@ public void codeComplete(int offset, ICompletionRequestor requestor) throws Java
  * @see ICodeAssist#codeComplete(int, ICompletionRequestor, WorkingCopyOwner)
  * @deprecated
  */
+@Deprecated
 public void codeComplete(int offset, ICompletionRequestor requestor, WorkingCopyOwner owner) throws JavaModelException {
 	if (requestor == null) {
 		throw new IllegalArgumentException("Completion requestor cannot be null"); //$NON-NLS-1$
@@ -219,9 +222,11 @@ public IJavaElement[] codeSelect(int offset, int length, WorkingCopyOwner owner)
 /**
  * Returns a new element info for this element.
  */
+@Override
 protected Object createElementInfo() {
 	return new ClassFileInfo();
 }
+@Override
 public boolean equals(Object o) {
 	if (!(o instanceof ClassFile)) return false;
 	ClassFile other = (ClassFile) o;
@@ -299,6 +304,7 @@ public IType findPrimaryType() {
 	}
 	return null;
 }
+@Override
 public String getAttachedJavadoc(IProgressMonitor monitor) throws JavaModelException {
 	return getType().getAttachedJavadoc(monitor);
 }
@@ -383,6 +389,7 @@ public byte[] getBytes() throws JavaModelException {
 }
 
 private IBinaryType getJarBinaryTypeInfo(PackageFragment pkg, boolean fullyInitialize) throws CoreException, IOException, ClassFormatException {
+	JarPackageFragmentRoot root = (JarPackageFragmentRoot) pkg.getParent();
 	// If the new index is enabled, check if we have this class file cached in the index already
 	if (JavaIndex.isEnabled()) {
 		IPath location = JavaIndex.getLocationForElement(pkg.getParent());
@@ -404,8 +411,12 @@ private IBinaryType getJarBinaryTypeInfo(PackageFragment pkg, boolean fullyIniti
 								Util.concatWith(pkg.names, this.name, '/').toCharArray(),
 								new char[] { ';' });
 
+						String entryName = Util.concatWith(pkg.names, getElementName(), '/');
+						String indexPath = root.getHandleIdentifier() + IDependent.JAR_FILE_ENTRY_SEPARATOR + entryName;
+
 						return new IndexBinaryType(
-								TypeRef.create(nd, locationString.toCharArray(), fieldDescriptor));
+								TypeRef.create(nd, locationString.toCharArray(), fieldDescriptor),
+								indexPath.toCharArray());
 					}
 				}
 			} catch (IndexException e) {
@@ -415,7 +426,6 @@ private IBinaryType getJarBinaryTypeInfo(PackageFragment pkg, boolean fullyIniti
 		}
 	}
 
-	JarPackageFragmentRoot root = (JarPackageFragmentRoot) pkg.getParent();
 	ZipFile zip = null;
 	ZipFile annotationZip = null;
 	try {
@@ -503,6 +513,7 @@ public void close() throws JavaModelException {
 	}
 	super.close();
 }
+@Override
 public IBuffer getBuffer() throws JavaModelException {
 	IStatus status = validateClassFile();
 	if (status.isOK()) {
@@ -520,6 +531,7 @@ public IBuffer getBuffer() throws JavaModelException {
 /**
  * @see IMember
  */
+@Override
 public IClassFile getClassFile() {
 	return this;
 }
@@ -535,6 +547,7 @@ public ITypeRoot getTypeRoot() {
  *
  * @see IJavaElement
  */
+@Override
 public IResource getCorrespondingResource() throws JavaModelException {
 	IPackageFragmentRoot root= (IPackageFragmentRoot)getParent().getParent();
 	if (root.isArchive()) {
@@ -606,6 +619,7 @@ public IJavaElement getElementAtConsideringSibling(int position) throws JavaMode
 		return null;
 	}
 }
+@Override
 public String getElementName() {
 	return this.name + SuffixConstants.SUFFIX_STRING_class;
 }
@@ -618,6 +632,7 @@ public int getElementType() {
 /*
  * @see JavaElement
  */
+@Override
 public IJavaElement getHandleFromMemento(String token, MementoTokenizer memento, WorkingCopyOwner owner) {
 	switch (token.charAt(0)) {
 		case JEM_TYPE:
@@ -631,6 +646,7 @@ public IJavaElement getHandleFromMemento(String token, MementoTokenizer memento,
 /**
  * @see JavaElement#getHandleMemento()
  */
+@Override
 protected char getHandleMementoDelimiter() {
 	return JavaElement.JEM_CLASSFILE;
 }
@@ -648,6 +664,7 @@ public IPath getPath() {
 /*
  * @see IJavaElement
  */
+@Override
 public IResource resource(PackageFragmentRoot root) {
 	return ((IContainer) ((Openable) this.parent).resource(root)).getFile(new Path(getElementName()));
 }
@@ -720,15 +737,18 @@ public ICompilationUnit getWorkingCopy(WorkingCopyOwner owner, IProgressMonitor 
  * @see IClassFile
  * @deprecated
  */
+@Deprecated
 public IJavaElement getWorkingCopy(IProgressMonitor monitor, org.eclipse.jdt.core.IBufferFactory factory) throws JavaModelException {
 	return getWorkingCopy(BufferFactoryWrapper.create(factory), monitor);
 }
 /**
  * @see Openable
  */
+@Override
 protected boolean hasBuffer() {
 	return true;
 }
+@Override
 public int hashCode() {
 	return Util.combineHashCodes(this.name.hashCode(), this.parent.hashCode());
 }
@@ -747,6 +767,7 @@ public boolean isInterface() throws JavaModelException {
 /**
  * Returns true - class files are always read only.
  */
+@Override
 public boolean isReadOnly() {
 	return true;
 }
@@ -769,6 +790,7 @@ private IStatus validateClassFile() {
  *
  * @see Openable
  */
+@Override
 protected IBuffer openBuffer(IProgressMonitor pm, Object info) throws JavaModelException {
 	// Check the cache for the top-level type first
 	IType outerMostEnclosingType = getOuterMostEnclosingType();
@@ -909,6 +931,7 @@ public static char[] translatedName(char[] name) {
  * @see ICodeAssist#codeComplete(int, ICodeCompletionRequestor)
  * @deprecated - should use codeComplete(int, ICompletionRequestor) instead
  */
+@Deprecated
 public void codeComplete(int offset, final org.eclipse.jdt.core.ICodeCompletionRequestor requestor) throws JavaModelException {
 
 	if (requestor == null){
@@ -964,6 +987,7 @@ public void codeComplete(int offset, final org.eclipse.jdt.core.ICodeCompletionR
 		});
 }
 
+@Override
 protected IStatus validateExistence(IResource underlyingResource) {
 	// check whether the class file can be opened
 	IStatus status = validateClassFile();
