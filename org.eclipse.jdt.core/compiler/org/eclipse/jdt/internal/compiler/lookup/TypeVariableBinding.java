@@ -43,10 +43,10 @@ import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.internal.compiler.ast.ASTNode;
 import org.eclipse.jdt.internal.compiler.ast.Annotation;
 import org.eclipse.jdt.internal.compiler.ast.NullAnnotationMatching;
+import org.eclipse.jdt.internal.compiler.ast.NullAnnotationMatching.CheckMode;
 import org.eclipse.jdt.internal.compiler.ast.TypeParameter;
 import org.eclipse.jdt.internal.compiler.ast.TypeReference;
 import org.eclipse.jdt.internal.compiler.ast.Wildcard;
-import org.eclipse.jdt.internal.compiler.ast.NullAnnotationMatching.CheckMode;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
 import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 import org.eclipse.jdt.internal.compiler.lookup.TypeConstants.BoundCheckStatus;
@@ -224,7 +224,7 @@ public class TypeVariableBinding extends ReferenceBinding {
 				}
 	    	}
 			if (location != null && checkNullAnnotations) {
-				if (NullAnnotationMatching.analyse(this, argumentType, substitutedSuperType, substitution, -1, CheckMode.BOUND_CHECK).isAnyMismatch()) {
+				if (NullAnnotationMatching.analyse(this, argumentType, substitutedSuperType, substitution, -1, null, CheckMode.BOUND_CHECK).isAnyMismatch()) {
 					scope.problemReporter().nullityMismatchTypeArgument(this, argumentType, location);
 					haveReportedNullProblem = true;
 				}
@@ -244,7 +244,7 @@ public class TypeVariableBinding extends ReferenceBinding {
 				}
 	    	}
 			if (location != null && checkNullAnnotations) {
-				if (NullAnnotationMatching.analyse(this, argumentType, substitutedSuperType, substitution, -1, CheckMode.BOUND_CHECK).isAnyMismatch()) {
+				if (NullAnnotationMatching.analyse(this, argumentType, substitutedSuperType, substitution, -1, null, CheckMode.BOUND_CHECK).isAnyMismatch()) {
 					scope.problemReporter().nullityMismatchTypeArgument(this, argumentType, location);
 					haveReportedNullProblem = true;
 				}
@@ -1049,5 +1049,12 @@ public class TypeVariableBinding extends ReferenceBinding {
 			}
 		}
 		return super.updateTagBits();
+	}
+
+	@Override
+	public boolean isFreeTypeVariable() {
+		return this.environment.usesNullTypeAnnotations() 
+				&& this.environment.globalOptions.pessimisticNullAnalysisForFreeTypeVariablesEnabled 
+				&& (this.tagBits & TagBits.AnnotationNullMASK) == 0;	
 	}
 }

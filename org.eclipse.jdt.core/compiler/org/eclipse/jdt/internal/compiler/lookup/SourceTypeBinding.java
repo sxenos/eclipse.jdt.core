@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2015 IBM Corporation and others.
+ * Copyright (c) 2000, 2016 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -65,6 +65,7 @@ import org.eclipse.jdt.internal.compiler.ast.TypeParameter;
 import org.eclipse.jdt.internal.compiler.ast.TypeReference;
 import org.eclipse.jdt.internal.compiler.ast.TypeReference.AnnotationPosition;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
+import org.eclipse.jdt.internal.compiler.classfmt.ExternalAnnotationProvider;
 import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 import org.eclipse.jdt.internal.compiler.impl.Constant;
 import org.eclipse.jdt.internal.compiler.problem.ProblemSeverities;
@@ -101,6 +102,8 @@ public class SourceTypeBinding extends ReferenceBinding {
 	private int nullnessDefaultInitialized = 0; // 0: nothing; 1: type; 2: package
 	private int lambdaOrdinal = 0;
 	private ReferenceBinding containerAnnotationType = null;
+
+	public ExternalAnnotationProvider externalAnnotationProvider;
 	
 public SourceTypeBinding(char[][] compoundName, PackageBinding fPackage, ClassScope scope) {
 	this.compoundName = compoundName;
@@ -1762,7 +1765,7 @@ public FieldBinding resolveTypeFor(FieldBinding field) {
 					// enum constants neither have a type declaration nor can they be null
 					field.tagBits |= TagBits.AnnotationNonNull;
 				} else {
-					if (hasNonNullDefaultFor(DefaultLocationField, sourceLevel >= ClassFileConstants.JDK1_8)) {
+					if (hasNonNullDefaultFor(DefaultLocationField, this.environment.usesNullTypeAnnotations())) {
 						field.fillInDefaultNonNullness(fieldDecl, initializationScope);
 					}
 					// validate null annotation:
@@ -1772,6 +1775,9 @@ public FieldBinding resolveTypeFor(FieldBinding field) {
 			}
 		} finally {
 		    initializationScope.initializedField = previousField;
+		}
+		if (this.externalAnnotationProvider != null) {
+			ExternalAnnotationSuperimposer.annotateFieldBinding(field, this.externalAnnotationProvider, this.environment);
 		}
 		return field;
 	}
@@ -1954,6 +1960,13 @@ public MethodBinding resolveTypesFor(MethodBinding method) {
 					rejectTypeAnnotatedVoidMethod(methodDecl);
 			}
 		}
+	} else {
+		if (sourceLevel >= ClassFileConstants.JDK1_8) {
+			Annotation [] annotations = methodDecl.annotations;
+			if (annotations != null && annotations.length != 0) {
+				ASTNode.copySE8AnnotationsToType(methodDecl.scope, method, methodDecl.annotations, false);
+			}
+		}
 	}
 	if (foundArgProblem) {
 		methodDecl.binding = null;
@@ -1988,6 +2001,9 @@ public MethodBinding resolveTypesFor(MethodBinding method) {
 		return method; // but its still unresolved with a null return type & is still connected to its method declaration
 
 	method.modifiers &= ~ExtraCompilerModifiers.AccUnresolved;
+	if (this.externalAnnotationProvider != null) {
+		ExternalAnnotationSuperimposer.annotateMethodBinding(method, this.externalAnnotationProvider, this.environment);
+	}
 	return method;
 }
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=391108

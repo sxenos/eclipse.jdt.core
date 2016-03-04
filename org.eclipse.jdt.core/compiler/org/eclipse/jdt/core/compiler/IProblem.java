@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2015 IBM Corporation and others.
+ * Copyright (c) 2000, 2016 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -1655,7 +1655,8 @@ void setSourceStart(int sourceStart);
 	int IllegalArrayTypeInIntersectionCast = TypeRelated + 893;
 	/** @since 3.10 */
 	int DuplicateBoundInIntersectionCast = TypeRelated + 894;
-	/** @since 3.10 */
+	/** @deprecated This problem is no longer reported; number Of functional interface is not an issue, number of abstract methods is.
+	 * @since 3.10 */
 	int MultipleFunctionalInterfaces = TypeRelated + 895;
 	/** @since 3.10 */
 	int StaticInterfaceMethodNotBelow18 = Internal + Syntax + 896;
@@ -1815,6 +1816,14 @@ void setSourceStart(int sourceStart);
 	int IllegalReturnNullityRedefinitionFreeTypeVariable = MethodRelated + 974;
 	/** @since 3.12 */
 	int IllegalRedefinitionOfTypeVariable = 975;
+	/** @since 3.12 */
+	int UncheckedAccessOfValueOfFreeTypeVariable = 976;
+	/** @since 3.12 */
+	int UninitializedFreeTypeVariableField = 977;
+	/** @since 3.12 */
+	int UninitializedFreeTypeVariableFieldHintMissingDefault = 978;
+	/** @since 3.12 */
+	int RequiredNonNullButProvidedFreeTypeVariable = TypeRelated + 979;
 
 
 	// Java 8 work

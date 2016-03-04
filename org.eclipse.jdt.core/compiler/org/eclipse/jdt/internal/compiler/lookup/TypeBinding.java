@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2015 IBM Corporation and others.
+ * Copyright (c) 2000, 2016 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -1565,11 +1565,12 @@ public TypeVariableBinding[] typeVariables() {
 }
 
 /**
- * Return the single abstract method of a functional interface, or null, if the receiver is not a functional interface as defined in JLS 9.8.
+ * Return the single abstract method of a functional interface, or one of {@code null} or {@link ReferenceBinding#samProblemBinding}, if the receiver is not a functional interface as defined in JLS 9.8.
+ * In particular {@code null} is answered if the receiver is not a reference type, or is a problem type.
  * @param scope scope
  * @param replaceWildcards Should wildcards be replaced following JLS 9.8? Say false for lambdas with explicit argument types which should apply 18.5.3
  *  
- * @return The single abstract method of a functional interface, or null, if the receiver is not a functional interface. 
+ * @return The single abstract method of a functional interface, or one of {@code null} or {@link ReferenceBinding#samProblemBinding}, if the receiver is not a functional interface. 
  */
 public MethodBinding getSingleAbstractMethod(Scope scope, boolean replaceWildcards) {
 	return null;
@@ -1678,5 +1679,9 @@ public boolean isFunctionalType() {
  */
 public long updateTagBits() {
 	return this.tagBits & TagBits.HasNullTypeAnnotation; // subclasses to override
+}
+
+public boolean isFreeTypeVariable() {
+	return false;
 }
 }

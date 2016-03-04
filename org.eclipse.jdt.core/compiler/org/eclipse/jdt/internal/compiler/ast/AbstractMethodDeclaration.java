@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2015 IBM Corporation and others.
+ * Copyright (c) 2000, 2016 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -211,6 +211,9 @@ public abstract class AbstractMethodDeclaration
 						flowInfo.markAsDefinitelyNonNull(methodArguments[i].binding);
 					else if (tagBits == TagBits.AnnotationNullable)
 						flowInfo.markPotentiallyNullBit(methodArguments[i].binding);
+					else if (methodBinding.parameters[i].isFreeTypeVariable()) {
+						flowInfo.markNullStatus(methodArguments[i].binding, FlowInfo.FREE_TYPEVARIABLE);
+					}
 				} else {					
 					if (methodBinding.parameterNonNullness != null) {
 						// leverage null-info from parameter annotations:
@@ -532,7 +535,7 @@ public abstract class AbstractMethodDeclaration
 			resolveReceiver();
 			bindThrownExceptions();
 			resolveJavadoc();
-			resolveAnnotations(this.scope, this.annotations, this.binding);
+			resolveAnnotations(this.scope, this.annotations, this.binding, this.isConstructor());
 			
 			long sourceLevel = this.scope.compilerOptions().sourceLevel;
 			if (sourceLevel < ClassFileConstants.JDK1_8) // otherwise already checked via Argument.createBinding
