@@ -412,9 +412,12 @@ private IBinaryType getJarBinaryTypeInfo(PackageFragment pkg, boolean fullyIniti
 						JavaNames.fieldDescriptorToBinaryName(descriptor.fieldDescriptor), SuffixConstants.SUFFIX_CLASS));
 				IProject project = javaProject.getProject();
 				IPath externalAnnotationPath = ClasspathEntry.getExternalAnnotationPath(entry, project, false); // unresolved for use in ExternalAnnotationTracker
-				if (externalAnnotationPath != null)
+				if (externalAnnotationPath != null) {
 					setupExternalAnnotationProvider(project, externalAnnotationPath, null, reader,
 							entryName.substring(0, entryName.length() - SuffixConstants.SUFFIX_CLASS.length));
+				} else if (entry.getEntryKind() == IClasspathEntry.CPE_SOURCE) {
+					reader.markAsFromSource();
+				}
 			}
 		}
 	}

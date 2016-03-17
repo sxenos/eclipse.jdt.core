@@ -427,6 +427,10 @@ public static int getIrritant(int problemID) {
 		case IProblem.UninitializedFreeTypeVariableFieldHintMissingDefault:
 			return CompilerOptions.PessimisticNullAnalysisForFreeTypeVariables;
 
+		case IProblem.NonNullTypeVariableFromLegacyMethod:
+		case IProblem.NonNullMethodTypeVariableFromLegacyMethod:
+			return CompilerOptions.NonNullTypeVariableFromLegacyInvocation;
+
 		case IProblem.ParameterLackingNonNullAnnotation:
 			return CompilerOptions.NonnullParameterAnnotationDropped;
 
@@ -659,6 +663,7 @@ public static int getProblemCategory(int severity, int problemID) {
 			case CompilerOptions.UnclosedCloseable :
 			case CompilerOptions.PotentiallyUnclosedCloseable :
 			case CompilerOptions.PessimisticNullAnalysisForFreeTypeVariables :
+			case CompilerOptions.NonNullTypeVariableFromLegacyInvocation :
 				return CategorizedProblem.CAT_POTENTIAL_PROGRAMMING_PROBLEM;
 			
 			case CompilerOptions.OverriddenPackageDefaultMethod :
@@ -1133,6 +1138,15 @@ public void boundMustBeAnInterface(ASTNode location, TypeBinding type) {
 		location.sourceStart,
 		location.sourceEnd);
 }
+public void bytecodeExceeds64KLimit(MethodBinding method, int start, int end) {
+	this.handle(
+		IProblem.BytecodeExceeds64KLimit,
+		new String[] {new String(method.selector), typesAsString(method, false)},
+		new String[] {new String(method.selector), typesAsString(method, true)},
+		ProblemSeverities.Error | ProblemSeverities.Abort | ProblemSeverities.Fatal,
+		start,
+		end);
+}
 public void bytecodeExceeds64KLimit(AbstractMethodDeclaration location) {
 	MethodBinding method = location.binding;
 	if (location.isConstructor()) {
@@ -1144,24 +1158,11 @@ public void bytecodeExceeds64KLimit(AbstractMethodDeclaration location) {
 			location.sourceStart,
 			location.sourceEnd);
 	} else {
-		this.handle(
-			IProblem.BytecodeExceeds64KLimit,
-			new String[] {new String(location.selector), typesAsString(method, false)},
-			new String[] {new String(location.selector), typesAsString(method, true)},
-			ProblemSeverities.Error | ProblemSeverities.Abort | ProblemSeverities.Fatal,
-			location.sourceStart,
-			location.sourceEnd);
+		bytecodeExceeds64KLimit(method,	location.sourceStart, location.sourceEnd);
 	}
 }
 public void bytecodeExceeds64KLimit(LambdaExpression location) {
-	MethodBinding method = location.binding;
-		this.handle(
-			IProblem.BytecodeExceeds64KLimit,
-			new String[] {new String(method.selector), typesAsString(method, false)},
-			new String[] {new String(method.selector), typesAsString(method, true)},
-			ProblemSeverities.Error | ProblemSeverities.Abort | ProblemSeverities.Fatal,
-			location.sourceStart,
-			location.diagnosticsSourceEnd());
+	bytecodeExceeds64KLimit(location.binding, location.sourceStart, location.diagnosticsSourceEnd());
 }
 public void bytecodeExceeds64KLimit(TypeDeclaration location) {
 	this.handle(
@@ -10010,7 +10011,54 @@ public void implicitObjectBoundNoNullDefault(TypeReference reference) {
 			ProblemSeverities.Warning,
 			reference.sourceStart, reference.sourceEnd);
 }
+public void nonNullTypeVariableInUnannotatedBinary(LookupEnvironment environment, MethodBinding method, Expression expression, int providedSeverity) {
+	TypeBinding declaredReturnType = method.original().returnType;
+	int severity = computeSeverity(IProblem.NonNullTypeVariableFromLegacyMethod);
+	if ((severity & ProblemSeverities.CoreSeverityMASK) == ProblemSeverities.Warning)
+		severity = providedSeverity; // leverage the greater precision from our caller
+	if (declaredReturnType instanceof TypeVariableBinding) { // paranoia check
+		TypeVariableBinding typeVariable = (TypeVariableBinding) declaredReturnType;
+		TypeBinding declaringClass = method.declaringClass;
 
+		char[][] nonNullName = this.options.nonNullAnnotationName;
+		String shortNonNullName = String.valueOf(nonNullName[nonNullName.length-1]);
+		
+		if (typeVariable.declaringElement instanceof ReferenceBinding) {
+			String[] arguments = new String[] {
+					shortNonNullName,
+					String.valueOf(declaringClass.nullAnnotatedReadableName(this.options, false)),
+					String.valueOf(declaringClass.original().readableName())};
+			String[] shortArguments = {
+					shortNonNullName,
+					String.valueOf(declaringClass.nullAnnotatedReadableName(this.options, true)),
+					String.valueOf(declaringClass.original().shortReadableName()) };
+			this.handle(IProblem.NonNullTypeVariableFromLegacyMethod,
+					arguments, 
+					shortArguments,
+					severity,
+					expression.sourceStart,
+					expression.sourceEnd);
+		} else if (typeVariable.declaringElement instanceof MethodBinding && method instanceof ParameterizedGenericMethodBinding) {
+			TypeBinding substitution = ((ParameterizedGenericMethodBinding) method).typeArguments[typeVariable.rank];
+			String[] arguments = new String[] {
+					shortNonNullName,
+					String.valueOf(typeVariable.readableName()),
+					String.valueOf(substitution.nullAnnotatedReadableName(this.options, false)),
+					String.valueOf(declaringClass.original().readableName())};
+			String[] shortArguments = {
+					shortNonNullName,
+					String.valueOf(typeVariable.shortReadableName()),
+					String.valueOf(substitution.nullAnnotatedReadableName(this.options, true)),
+					String.valueOf(declaringClass.original().shortReadableName()) };
+			this.handle(IProblem.NonNullMethodTypeVariableFromLegacyMethod,
+					arguments, 
+					shortArguments, 
+					severity,
+					expression.sourceStart,
+					expression.sourceEnd);			
+		}
+	}
+}
 public void dereferencingNullableExpression(Expression expression) {
 	if (expression instanceof MessageSend) {
 		MessageSend send = (MessageSend) expression;
