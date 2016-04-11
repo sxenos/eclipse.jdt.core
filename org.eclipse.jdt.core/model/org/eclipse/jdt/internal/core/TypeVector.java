@@ -10,11 +10,10 @@
  *******************************************************************************/
 package org.eclipse.jdt.internal.core;
 
-import org.eclipse.jdt.core.IType;
-
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.HashSet;
+
+import org.eclipse.jdt.core.IType;
 
 public final class TypeVector {
 	static int INITIAL_SIZE = 10;
@@ -24,7 +23,7 @@ public final class TypeVector {
 	int maxSize;
 	IType[] elements;
 	/**
-	 * {@link HashSet} that contains the same elements as the {@link #elements}. Used to speed up {@link #contains} 
+	 * {@link HashMap} that contains the same elements as the {@link #elements}. Used to speed up {@link #contains} 
 	 * for large lists. It is lazily constructed the first time it is needed for vectors larger than
 	 * {@link #MIN_ELEMENTS_FOR_HASHSET}. Set to null if not constructed yet. The keys and values are the same
 	 */
@@ -116,19 +115,6 @@ public IType[] elements() {
 	return this.elements;
 }
 
-public IType find(IType element) {
-	if (this.elementSet != null) {
-		IType targetType = this.elementSet.get(element);
-		if (targetType == element) {
-			return element;
-		}
-		return null;
-	}
-	for (int i = this.size; --i >= 0;)
-		if (element == this.elements[i])
-			return this.elements[i];
-	return null;
-}
 public IType remove(IType element) {
 	if (this.elementSet != null) {
 		IType value = this.elementSet.get(element);
