@@ -1633,6 +1633,8 @@ public final class CompletionEngine
 			if (completionOnQualifiedTypeReference.isConstructorType){
 						context.setTokenLocation(CompletionContext.TL_CONSTRUCTOR_START);
 			}
+		} else if (astNode instanceof CompletionOnKeyword3 && ((CompletionOnKeyword3) astNode).afterTryOrCatch()) {
+				context.setTokenLocation(CompletionContext.TL_STATEMENT_START);
 		} else {
 			ReferenceContext referenceContext = scope.referenceContext();
 			if (referenceContext instanceof AbstractMethodDeclaration) {
@@ -7492,7 +7494,7 @@ public final class CompletionEngine
 							if(proposeMethod && !insideAnnotationAttribute) {
 								MethodBinding methodBinding = (MethodBinding)binding;
 								if ((exactMatch && CharOperation.equals(token, methodBinding.selector)) ||
-										!exactMatch && CharOperation.prefixEquals(token, methodBinding.selector) ||
+										!exactMatch && CharOperation.prefixEquals(token, methodBinding.selector, false) ||
 										(this.options.camelCaseMatch && CharOperation.camelCaseMatch(token, methodBinding.selector))) {
 									findLocalMethodsFromStaticImports(
 											token,

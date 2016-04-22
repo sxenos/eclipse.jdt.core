@@ -6045,6 +6045,93 @@ public void testBug479284() {
 		"The type BadInferenceMars451 is not generic; it cannot be parameterized with arguments <BadInferenceMars451.X>\n" + 
 		"----------\n");
 }
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=491139 Lambda that redefines a default method with generics
+public void testBug491139() {
+	this.runConformTest(
+		new String[] {
+			"Test.java",
+			"public class Test {\n" + 
+			"	interface Foo<T> {\n" + 
+			"			default String bar(String s) {\n" + 
+			"			return (\"default : \" + s);\n" + 
+			"		}\n" + 
+			"		String bar(T t);\n" + 
+			"	}\n" + 
+			"	public String testLambdaRedefiningADefault() {\n" + 
+			"		Foo<String> foo =\n" + 
+			"		    (t) -> {\n" + 
+			"		      return \"lambda : \" + t;\n" + 
+			"		  };\n" + 
+			"		return (((Foo)foo).bar(\"String\"));\n" + 
+			"	}\n" + 
+			"	public static void main(String[] args) {\n" + 
+			"		System.out.println(new Test().testLambdaRedefiningADefault());\n" + 
+			"	}\n" + 
+			"}\n"
+	},
+	"lambda : String");
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=489631 [1.8] "java.lang.VerifyError: Bad type on operand stack" with lamba and type defined in method
+public void test489631() {
+	this.runConformTest(
+		new String[] {
+			"Test.java",
+			"import java.util.ArrayList;\n" + 
+			"import java.util.List;\n" +
+			"interface I { int getLength(); }\n" + 
+			"public class Test {\n" + 
+			"	public void test() {\n" + 
+			"		class A<T> {\n" + 
+			"			List<T> l;\n" + 
+			"			public A(List<T> l) {\n" + 
+			"				this.l = l;\n" + 
+			"			}\n" + 
+			"		}\n" + 
+			"		List<Integer> list = new ArrayList<>();\n" + 
+			"		I i = () -> new A<>(list).l.size();\n" + 
+			"		System.out.println(i.getLength());\n" + 
+			"	}\n" + 
+			"	public static void main(String[] args) {\n" + 
+			"		new Test().test();\n" + 
+			"	}\n" + 
+			"}"
+	},
+	"0");
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=489631 [1.8] "java.lang.VerifyError: Bad type on operand stack" with lamba and type defined in method
+public void test489631a() {
+	this.runConformTest(
+		new String[] {
+			"Test.java",
+			"import java.util.ArrayList;\n" + 
+			"import java.util.List;\n" + 
+			"interface I { int getLength(); }\n" + 
+			"public class Test {\n" + 
+			"	public void test() {\n" + 
+			"		class A<T> {\n" + 
+			"			List<T> l;\n" + 
+			"			public A(List<T> l) {\n" + 
+			"				this.l = l;\n" + 
+			"			}\n" + 
+			"			class B {\n" + 
+			"				List<Integer> iL;\n" + 
+			"				public B(List<Integer> l) {\n" + 
+			"					// super(l);\n" + 
+			"					this.iL = l;\n" + 
+			"				}\n" + 
+			"			}\n" + 
+			"		}\n" + 
+			"		List<Integer> list = new ArrayList<>();\n" + 
+			"		I i = () -> new A<>(list).new B(list).iL.size();\n" + 
+			"		System.out.println(i.getLength());\n" + 
+			"	}\n" + 
+			"	public static void main(String[] args) {\n" + 
+			"		new Test().test();\n" + 
+			"	}\n" + 
+			"}"
+	},
+	"0");
+}
 public static Class testClass() {
 	return LambdaExpressionsTest.class;
 }

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2013 IBM Corporation and others.
+ * Copyright (c) 2000, 2016 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -23,36 +23,35 @@ import org.eclipse.jdt.core.IRegion;
  * @see IRegion
  */
 
-@SuppressWarnings({ "rawtypes", "unchecked" })
 public class Region implements IRegion {
 
 	private static final class Node {
-		private static Map<IJavaElement, Node> children = Collections.emptyMap();
+		private Map<IJavaElement, Node> children = Collections.emptyMap();
 
 		public Node() {
 		}
 
 		public void clearChildren() {
-			children = Collections.emptyMap();
+			this.children = Collections.emptyMap();
 		}
 
 		public Node createChildFor(IJavaElement element) {
-			if (children.isEmpty()) {
-				children = new HashMap<>();
+			if (this.children.isEmpty()) {
+				this.children = new HashMap<>();
 			}
 
-			Node child = children.get(element);
+			Node child = this.children.get(element);
 
 			if (child == null) {
 				child = new Node();
-				children.put(element, child);
+				this.children.put(element, child);
 			}
 
 			return child;
 		}
 
 		public Node findChildFor(IJavaElement element) {
-			return children.get(element);
+			return this.children.get(element);
 		}
 
 		public int countLeafNodes() {
@@ -61,18 +60,18 @@ public class Region implements IRegion {
 			}
 
 			int result = 0;
-			for (Node next : children.values()) {
+			for (Node next : this.children.values()) {
 				result += next.countLeafNodes();
 			}
 			return result;
 		}
 
 		boolean isEmpty() {
-			return children.isEmpty();
+			return this.children.isEmpty();
 		}
 
 		public int gatherLeaves(IJavaElement[] result, int i) {
-			for (Map.Entry<IJavaElement, Node> next : children.entrySet()) {
+			for (Map.Entry<IJavaElement, Node> next : this.children.entrySet()) {
 				Node nextNode = next.getValue();
 				if (nextNode.isEmpty()) {
 					result[i++] = next.getKey();
@@ -84,7 +83,7 @@ public class Region implements IRegion {
 		}
 
 		public void removeChild(IJavaElement currentElement) {
-			children.remove(currentElement);
+			this.children.remove(currentElement);
 		}
 	}
 
