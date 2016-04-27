@@ -167,6 +167,7 @@ public void build(boolean computeSubtypes) {
 	}
 }
 private void buildForProject(JavaProject project, ArrayList potentialSubtypes, org.eclipse.jdt.core.ICompilationUnit[] workingCopies, HashSet localTypes, IProgressMonitor monitor) throws JavaModelException {
+	SubMonitor subMonitor = SubMonitor.convert(monitor, 10);
 	// resolve
 	int openablesLength = potentialSubtypes.size();
 	if (openablesLength > 0) {
@@ -189,6 +190,7 @@ private void buildForProject(JavaProject project, ArrayList potentialSubtypes, o
 			}
 			indexes.put(openables[i], index);
 		}
+		subMonitor.split(1);
 		Arrays.sort(openables, new Comparator() {
 			public int compare(Object a, Object b) {
 				int aIndex = indexes.get(a);
@@ -247,17 +249,18 @@ private void buildForProject(JavaProject project, ArrayList potentialSubtypes, o
 				}
 				localTypes = new HashSet();
 				localTypes.add(openable.getPath().toString());
-				this.hierarchyResolver.resolve(new Openable[] {openable}, localTypes, monitor);
+				this.hierarchyResolver.resolve(new Openable[] {openable}, localTypes, subMonitor.split(9));
 				return;
 			}
 		}
-		this.hierarchyResolver.resolve(openables, localTypes, monitor);
+		this.hierarchyResolver.resolve(openables, localTypes, subMonitor.split(9));
 	}
 }
 /**
  * Configure this type hierarchy based on the given potential subtypes.
  */
 private void buildFromPotentialSubtypes(String[] allPotentialSubTypes, HashSet localTypes, IProgressMonitor monitor) {
+	SubMonitor subMonitor = SubMonitor.convert(monitor, 100);
 	IType focusType = getType();
 
 	// substitute compilation units with working copies
@@ -295,6 +298,7 @@ private void buildFromPotentialSubtypes(String[] allPotentialSubTypes, HashSet l
 		length++;
 	}
 
+	subMonitor.split(10);
 	/*
 	 * Sort in alphabetical order so that potential subtypes are grouped per project
 	 */
@@ -302,11 +306,12 @@ private void buildFromPotentialSubtypes(String[] allPotentialSubTypes, HashSet l
 
 	ArrayList potentialSubtypes = new ArrayList();
 	try {
+		SubMonitor loopMonitor = subMonitor.split(90);
 		// create element infos for subtypes
 		HandleFactory factory = new HandleFactory();
 		IJavaProject currentProject = null;
-		if (monitor != null) monitor.beginTask("", length*2 /* 1 for build binding, 1 for connect hierarchy*/); //$NON-NLS-1$
 		for (int i = 0; i < length; i++) {
+			loopMonitor.setWorkRemaining(length - i);
 			try {
 				String resourcePath = allPotentialSubTypes[i];
 
@@ -331,7 +336,7 @@ private void buildFromPotentialSubtypes(String[] allPotentialSubTypes, HashSet l
 					potentialSubtypes = new ArrayList(5);
 				} else if (!currentProject.equals(project)) {
 					// build current project
-					buildForProject((JavaProject)currentProject, potentialSubtypes, workingCopies, localTypes, monitor);
+					buildForProject((JavaProject)currentProject, potentialSubtypes, workingCopies, localTypes, loopMonitor.split(1));
 					currentProject = project;
 					potentialSubtypes = new ArrayList(5);
 				}
@@ -353,7 +358,7 @@ private void buildFromPotentialSubtypes(String[] allPotentialSubTypes, HashSet l
 					potentialSubtypes.add(focusType.getCompilationUnit());
 				}
 			}
-			buildForProject((JavaProject)currentProject, potentialSubtypes, workingCopies, localTypes, monitor);
+			buildForProject((JavaProject)currentProject, potentialSubtypes, workingCopies, localTypes, subMonitor.split(5));
 		} catch (JavaModelException e) {
 			// ignore
 		}
@@ -368,7 +373,7 @@ private void buildFromPotentialSubtypes(String[] allPotentialSubTypes, HashSet l
 				} else {
 					potentialSubtypes.add(focusType.getCompilationUnit());
 				}
-				buildForProject((JavaProject)currentProject, potentialSubtypes, workingCopies, localTypes, monitor);
+				buildForProject((JavaProject)currentProject, potentialSubtypes, workingCopies, localTypes, subMonitor.split(5));
 			} catch (JavaModelException e) {
 				// ignore
 			}
@@ -379,7 +384,7 @@ private void buildFromPotentialSubtypes(String[] allPotentialSubTypes, HashSet l
 			this.hierarchy.addRootClass(focusType);
 		}
 	} finally {
-		if (monitor != null) monitor.done();
+		SubMonitor.done(monitor);
 	}
 }
 protected ICompilationUnit createCompilationUnitFromPath(Openable handle, IFile file) {
@@ -526,7 +531,7 @@ private static void newSearchAllPossibleSubTypes(IType type, IJavaSearchScope sc
 				continue;
 			}
 
-			subMonitor.setWorkRemaining(Math.max(typesToVisit.size(), 10)).split(1);
+			subMonitor.setWorkRemaining(Math.max(typesToVisit.size(), 100)).split(1);
 
 			boolean isLocalClass = nextType.isLocal() || nextType.isAnonymous();
 			pathRequestor.acceptPath(typePath, isLocalClass);
