@@ -26,7 +26,6 @@ import org.eclipse.core.resources.IWorkspaceRoot;
 import org.eclipse.core.resources.ResourcesPlugin;
 import org.eclipse.core.runtime.IPath;
 import org.eclipse.core.runtime.IProgressMonitor;
-import org.eclipse.core.runtime.NullProgressMonitor;
 import org.eclipse.core.runtime.SubMonitor;
 import org.eclipse.jdt.core.IJavaElement;
 import org.eclipse.jdt.core.IJavaProject;
@@ -54,6 +53,7 @@ import org.eclipse.jdt.internal.core.Member;
 import org.eclipse.jdt.internal.core.Openable;
 import org.eclipse.jdt.internal.core.PackageFragment;
 import org.eclipse.jdt.internal.core.SearchableEnvironment;
+import org.eclipse.jdt.internal.core.nd.IReader;
 import org.eclipse.jdt.internal.core.nd.Nd;
 import org.eclipse.jdt.internal.core.nd.java.JavaIndex;
 import org.eclipse.jdt.internal.core.nd.java.JavaNames;
@@ -498,11 +498,10 @@ private static void newSearchAllPossibleSubTypes(IType type, IJavaSearchScope sc
 	JavaIndex index = JavaIndex.getIndex();
 	Nd nd = index.getNd();
 	char[] fieldDefinition = JavaNames.fullyQualifiedNameToFieldDescriptor(type.getFullyQualifiedName().toCharArray());
-	nd.acquireReadLock();
 
 	IWorkspaceRoot root = ResourcesPlugin.getWorkspace().getRoot();
 
-	try {
+	try (IReader reader = nd.acquireReadLock()) {
 		NdTypeId foundType = index.findType(fieldDefinition);
 
 		if (foundType == null) {
@@ -531,7 +530,7 @@ private static void newSearchAllPossibleSubTypes(IType type, IJavaSearchScope sc
 				continue;
 			}
 
-			subMonitor.setWorkRemaining(Math.max(typesToVisit.size(), 100)).split(1);
+			subMonitor.setWorkRemaining(Math.max(typesToVisit.size(), 1000)).split(1);
 
 			boolean isLocalClass = nextType.isLocal() || nextType.isAnonymous();
 			pathRequestor.acceptPath(typePath, isLocalClass);
@@ -549,8 +548,6 @@ private static void newSearchAllPossibleSubTypes(IType type, IJavaSearchScope sc
 				}
 			}
 		}
-	} finally {
-		nd.releaseReadLock();
 	}
 }
 
@@ -583,6 +580,8 @@ private static void legacySearchAllPossibleSubTypes(
 	final IPathRequestor pathRequestor,
 	int waitingPolicy,	// WaitUntilReadyToSearch | ForceImmediateSearch | CancelIfNotReadyToSearch
 	final IProgressMonitor progressMonitor) {
+
+	SubMonitor subMonitor = SubMonitor.convert(progressMonitor, 100);
 
 	/* embed constructs inside arrays so as to pass them to (inner) collector */
 	final Queue queue = new Queue();
@@ -644,11 +643,10 @@ private static void legacySearchAllPossibleSubTypes(
 		scope,
 		searchRequestor);
 
-	int ticks = 0;
 	queue.add(type.getElementName().toCharArray());
 	try {
 		while (queue.start <= queue.end) {
-			if (progressMonitor != null && progressMonitor.isCanceled()) return;
+			subMonitor.setWorkRemaining(Math.max(queue.end - queue.start, 1));
 
 			// all subclasses of OBJECT are actually all types
 			char[] currentTypeName = queue.retrieve();
@@ -657,22 +655,7 @@ private static void legacySearchAllPossibleSubTypes(
 
 			// search all index references to a given supertype
 			pattern.superSimpleName = currentTypeName;
-			indexManager.performConcurrentJob(job, waitingPolicy, progressMonitor == null ? null : new NullProgressMonitor() {
-				// don't report progress since this is too costly for deep hierarchies (see https://bugs.eclipse.org/bugs/show_bug.cgi?id=34078 )
-				// just handle isCanceled() (see https://bugs.eclipse.org/bugs/show_bug.cgi?id=179511 )
-				public void setCanceled(boolean value) {
-					progressMonitor.setCanceled(value);
-				}
-				public boolean isCanceled() {
-					return progressMonitor.isCanceled();
-				}
-				// and handle subTask(...) (see https://bugs.eclipse.org/bugs/show_bug.cgi?id=34078 )
-				public void subTask(String name) {
-					progressMonitor.subTask(name);
-				}
-			});
-			if (progressMonitor != null && ++ticks <= MAXTICKS)
-				progressMonitor.worked(1);
+			indexManager.performConcurrentJob(job, waitingPolicy, subMonitor.split(1));
 
 			// in case, we search all subtypes, no need to search further
 			if (currentTypeName == null) break;
