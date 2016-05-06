@@ -23,22 +23,22 @@ final class Chunk {
 	final private byte[] fBuffer= new byte[Database.CHUNK_SIZE];
 
 	final Database fDatabase;
-	final int fSequenceNumber;
+	final int fPhysicalIndex;
 
 	boolean fCacheHitFlag;
 	boolean fDirty;
 	boolean fLocked;	// locked chunks must not be released from cache.
 	int fCacheIndex= -1;
 
-	Chunk(Database db, int sequenceNumber) {
+	Chunk(Database db, int physicalIndex) {
 		this.fDatabase= db;
-		this.fSequenceNumber= sequenceNumber;
+		this.fPhysicalIndex= physicalIndex;
 	}
 
 	void read() throws IndexException {
 		try {
 			final ByteBuffer buf= ByteBuffer.wrap(this.fBuffer);
-			this.fDatabase.read(buf, (long) this.fSequenceNumber * Database.CHUNK_SIZE);
+			this.fDatabase.read(buf, (long) this.fPhysicalIndex * Database.CHUNK_SIZE);
 		} catch (IOException e) {
 			throw new IndexException(new DBStatus(e));
 		}
@@ -47,7 +47,7 @@ final class Chunk {
 	void flush() throws IndexException {
 		try {
 			final ByteBuffer buf= ByteBuffer.wrap(this.fBuffer);
-			this.fDatabase.write(buf, (long) this.fSequenceNumber * Database.CHUNK_SIZE);
+			this.fDatabase.write(buf, (long) this.fPhysicalIndex * Database.CHUNK_SIZE);
 		} catch (IOException e) {
 			throw new IndexException(new DBStatus(e));
 		}
@@ -61,7 +61,9 @@ final class Chunk {
 	public void putByte(final long offset, final byte value) {
 		assert this.fLocked;
 		this.fDirty= true;
-		this.fBuffer[recPtrToIndex(offset)]= value;
+		int idx = recPtrToIndex(offset);
+		aboutToWrite(idx, 1);
+		this.fBuffer[idx]= value;
 	}
 
 	public byte getByte(final long offset) {
@@ -77,13 +79,16 @@ final class Chunk {
 	public void putBytes(final long offset, final byte[] bytes) {
 		assert this.fLocked;
 		this.fDirty= true;
-		System.arraycopy(bytes, 0, this.fBuffer, recPtrToIndex(offset), bytes.length);
+		int idx = recPtrToIndex(offset);
+		aboutToWrite(idx, bytes.length);
+		System.arraycopy(bytes, 0, this.fBuffer, idx, bytes.length);
 	}
 
 	public void putInt(final long offset, final int value) {
 		assert this.fLocked;
 		this.fDirty= true;
 		int idx= recPtrToIndex(offset);
+		aboutToWrite(idx, 4);
 		putInt(value, this.fBuffer, idx);
 	}
 
@@ -140,6 +145,7 @@ final class Chunk {
 		assert this.fLocked;
 		this.fDirty = true;
 		int idx = recPtrToIndex(offset);
+		aboutToWrite(idx, Database.PTR_SIZE);
 		Database.putRecPtr(value, this.fBuffer, idx);
 	}
 
@@ -169,6 +175,7 @@ final class Chunk {
 		assert this.fLocked;
 		this.fDirty= true;
 		int idx= recPtrToIndex(offset);
+		aboutToWrite(idx, 3);
 		this.fBuffer[idx]= (byte) (value >> 16);
 		this.fBuffer[++idx]= (byte) (value >> 8);
 		this.fBuffer[++idx]= (byte) (value);
@@ -185,6 +192,7 @@ final class Chunk {
 		assert this.fLocked;
 		this.fDirty= true;
 		int idx= recPtrToIndex(offset);
+		aboutToWrite(idx, 2);
 		this.fBuffer[idx]= (byte) (value >> 8);
 		this.fBuffer[++idx]= (byte) (value);
 	}
@@ -219,6 +227,7 @@ final class Chunk {
 		this.fDirty= true;
 		int idx= recPtrToIndex(offset);
 
+		aboutToWrite(idx, 8);
 		this.fBuffer[idx]=   (byte) (value >> 56);
 		this.fBuffer[++idx]= (byte) (value >> 48);
 		this.fBuffer[++idx]= (byte) (value >> 40);
@@ -233,6 +242,7 @@ final class Chunk {
 		assert this.fLocked;
 		this.fDirty= true;
 		int idx= recPtrToIndex(offset);
+		aboutToWrite(idx, 2);
 		this.fBuffer[idx]= (byte) (value >> 8);
 		this.fBuffer[++idx]= (byte) (value);
 	}
@@ -241,6 +251,7 @@ final class Chunk {
 		assert this.fLocked;
 		this.fDirty= true;
 		int idx= recPtrToIndex(offset)-1;
+		aboutToWrite(idx, len * 2);
 		final int end= start + len;
 		for (int i = start; i < end; i++) {
 			char value= chars[i];
@@ -254,6 +265,7 @@ final class Chunk {
 		this.fDirty= true;
 		int idx= recPtrToIndex(offset)-1;
 		final int end= start + len;
+		aboutToWrite(idx, len);
 		for (int i = start; i < end; i++) {
 			char value= chars[i];
 			this.fBuffer[++idx]= (byte) (value);
@@ -290,6 +302,7 @@ final class Chunk {
 		assert this.fLocked;
 		this.fDirty= true;
 		int idx = recPtrToIndex(offset);
+		aboutToWrite(idx, length);
 		final int end = idx + length;
 		for (; idx < end; idx++) {
 			this.fBuffer[idx] = 0;
@@ -304,7 +317,11 @@ final class Chunk {
 		assert this.fLocked;
 		this.fDirty = true;
 		int idx = recPtrToIndex(offset);
+		aboutToWrite(idx, len);
 		System.arraycopy(data, dataPos, this.fBuffer, idx, len);
+	}
+
+	private void aboutToWrite(int idx, int len) {
 	}
 
 	public void get(final long offset, byte[] data) {
@@ -314,5 +331,52 @@ final class Chunk {
 	public void get(final long offset, byte[] data, int dataPos, int len) {
 		int idx = recPtrToIndex(offset);
 		System.arraycopy(this.fBuffer, idx, data, dataPos, len);
+	}
+
+	/**
+	 * Computes the CRC for this chunk.
+	 */
+	public int computeCrc() {
+//		Adler32 checksum = new Adler32();
+//		checksum.update(this.fBuffer);
+//		long returnValue = checksum.getValue();
+//
+//		if (Database.USE_BIG_CRCS) {
+//			return (int)((returnValue >>> 32) | returnValue);
+//		} else {
+//			return (short)(returnValue | (returnValue >>> 8) | (returnValue >>> 16) | (returnValue >>> 24));
+//		}
+
+//		int sum;
+//		long len = fBuffer.length;
+//		for (int idx = 0; idx < f
+		
+		int result = 0;
+		int len = this.fBuffer.length;
+		for (int idx = 0; idx < len; idx++) {
+			result += this.fBuffer[idx];
+		}
+		
+		if (Database.USE_BIG_CRCS) {
+			return result;
+		} else {
+			return (short)result;
+		}
+	}
+
+	public void putCrc(int offset, int crc) {
+		if (Database.USE_BIG_CRCS) {
+			putInt(offset, crc);
+		} else {
+			putShort(offset, (short)crc);
+		}
+	}
+
+	public int getCrc(int offset) {
+		if (Database.USE_BIG_CRCS) {
+			return getInt(offset);
+		} else {
+			return getShort(offset);
+		}
 	}
 }

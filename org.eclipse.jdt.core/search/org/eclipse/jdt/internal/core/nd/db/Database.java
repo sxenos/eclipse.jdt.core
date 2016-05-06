@@ -23,6 +23,7 @@ import java.nio.channels.ClosedByInterruptException;
 import java.nio.channels.ClosedChannelException;
 import java.nio.channels.FileChannel;
 import java.util.ArrayList;
+import java.util.List;
 
 import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.Status;
@@ -77,18 +78,24 @@ public class Database {
 	public static final int SHORT_SIZE = 2;
 	public static final int INT_SIZE = 4;
 	public static final int LONG_SIZE = 8;
-	public static final int CHUNK_SIZE = 1024 * 4;
+	public static final int BLOCK_SIZE_DELTA_BITS = 3;
+	public static final int BLOCK_SIZE_DELTA= 1 << BLOCK_SIZE_DELTA_BITS;
+	public static final int CHUNK_ADDRESS_SIZE_BITS = 12;
+	public static final int CHUNK_SIZE = 1 << CHUNK_ADDRESS_SIZE_BITS;
 	public static final int OFFSET_IN_CHUNK_MASK= CHUNK_SIZE - 1;
 	public static final int BLOCK_HEADER_SIZE = SHORT_SIZE;
 
-	public static final int BLOCK_SIZE_DELTA_BITS = 3;
-	public static final int BLOCK_SIZE_DELTA= 1 << BLOCK_SIZE_DELTA_BITS;
-	
 	// Fields that are only used by free blocks
 	private static final int BLOCK_PREV_OFFSET = BLOCK_HEADER_SIZE;
 	private static final int BLOCK_NEXT_OFFSET = BLOCK_HEADER_SIZE + INT_SIZE;
 	private static final int FREE_BLOCK_HEADER_SIZE = BLOCK_NEXT_OFFSET + INT_SIZE;
 	
+	/**
+	 * Determines whether the Database uses a global CRC table. The global CRC table holds the CRCs of
+	 * all the CRC blocks, in order to guarantee global consistency but it takes up some extra space
+	 * and has a small write penalty.
+	 */
+	public static final boolean USE_GLOBAL_CRC_TABLE = true;
 	public static final int MIN_BLOCK_DELTAS = (FREE_BLOCK_HEADER_SIZE + BLOCK_SIZE_DELTA - 1) /
 			BLOCK_SIZE_DELTA; // Must be enough multiples of BLOCK_SIZE_DELTA in order to fit the free block header
 	public static final int MAX_BLOCK_DELTAS = CHUNK_SIZE / BLOCK_SIZE_DELTA;
@@ -98,6 +105,23 @@ public class Database {
 	public static final int FLOAT_SIZE = INT_SIZE;
 	public static final int DOUBLE_SIZE = LONG_SIZE;
 	public static final long MAX_DB_SIZE= ((long) 1 << (Integer.SIZE + BLOCK_SIZE_DELTA_BITS));
+
+	public static final boolean USE_BIG_CRCS = false;
+	public static final int CRC_SIZE = USE_BIG_CRCS ? 4 : 2;
+	public static final int CRCS_PER_CRC_CHUNK = CHUNK_SIZE / CRC_SIZE; 
+	// Global CRC chunks store 1 less CRC since they also include a slot for their own CRC
+	private static final int CRCS_PER_GLOBAL_CRC_CHUNK = CRCS_PER_CRC_CHUNK - 1;
+	private static final long MAX_ADDRESSIBLE_MEMORY_SIZE = ((long)1) << (PTR_SIZE * 8 + BLOCK_SIZE_DELTA_BITS);
+	private static final int NUM_GLOBAL_CRC_CHUNKS = 1;
+	private static final long MAX_SIZE_THAT_FITS_IN_AVAILABLE_CHUNKS = (long) NUM_GLOBAL_CRC_CHUNKS
+			* (long) CRCS_PER_GLOBAL_CRC_CHUNK * CRCS_PER_CRC_CHUNK * CHUNK_SIZE;
+	// The database size may be bounded by the maximum addressible memory size or the number of chunks whose CRCs fit in the
+	// global CRC chunk.
+	public static final long MAX_DATABASE_SIZE = (MAX_ADDRESSIBLE_MEMORY_SIZE < MAX_SIZE_THAT_FITS_IN_AVAILABLE_CHUNKS || !USE_GLOBAL_CRC_TABLE)
+			? MAX_ADDRESSIBLE_MEMORY_SIZE : MAX_SIZE_THAT_FITS_IN_AVAILABLE_CHUNKS;
+	public static final long MAX_CHUNKS = MAX_DATABASE_SIZE / CHUNK_SIZE;
+
+	public static final int MAX_CRC_CHUNKS = (int)(MAX_CHUNKS / CRCS_PER_CRC_CHUNK);
 
 	public static final int VERSION_OFFSET = 0;
 	private static final int MALLOC_TABLE_OFFSET = VERSION_OFFSET + INT_SIZE;
@@ -140,11 +164,11 @@ public class Database {
 			openFile();
 
 			int nChunksOnDisk = (int) (this.fFile.length() / CHUNK_SIZE);
-			this.fHeaderChunk= new Chunk(this, 0);
+			this.fHeaderChunk= new Chunk(this, NUM_GLOBAL_CRC_CHUNKS + 1);
 			this.fHeaderChunk.fLocked= true;		// Never makes it into the cache, needed to satisfy assertions.
-			if (nChunksOnDisk <= 0) {
+			if (nChunksOnDisk <= this.fHeaderChunk.fPhysicalIndex) {
 				this.fVersion= version;
-				this.fChunks= new Chunk[1];
+				this.fChunks= new Chunk[NUM_GLOBAL_CRC_CHUNKS + 2];
 				this.fChunksUsed = this.fChunksAllocated = this.fChunks.length;
 			} else {
 				this.fHeaderChunk.read();
@@ -152,9 +176,82 @@ public class Database {
 				this.fChunks = new Chunk[nChunksOnDisk];	// chunk[0] is unused.
 				this.fChunksUsed = this.fChunksAllocated = nChunksOnDisk;
 			}
+			this.fChunks[this.fHeaderChunk.fPhysicalIndex] = fHeaderChunk;
 		} catch (IOException e) {
 			throw new IndexException(new DBStatus(e));
 		}
+	}
+
+	/**
+	 * Given the logical chunk number for a data chunk, this returns the crc chunk
+	 * number that will hold the CRC for that logical chunk.
+	 */
+	private static int crcChunkNumberForLogicalDataChunk(int logicalChunkNumber) {
+		return logicalChunkNumber / CRCS_PER_CRC_CHUNK;
+	}
+
+	/**
+	 * Returns the crc chunk number for the given physical index or -1 if no crc
+	 * chunk exists for the given chunk number (ie: if the given physical chunk IS
+	 * a CRC chunk).
+	 */
+	private static int getPhysicalAddressForCrcOfPhysicalChunk(int physicalChunk) {
+		int relativeToStart = physicalChunk - NUM_GLOBAL_CRC_CHUNKS;
+		if (relativeToStart < 0) {
+			// If this chunk is part of the global CRC table then it has no external CRC.
+			return -1;
+		}
+
+		int denominator = CRCS_PER_CRC_CHUNK + 1;
+		int crcChunkNum = relativeToStart / denominator;
+		int positionWithinChunk = (relativeToStart % denominator) - 1;
+
+		// Is this a CRC chunk?
+		if (positionWithinChunk == -1) {
+			if (!USE_GLOBAL_CRC_TABLE) {
+				// If we're not using a global CRC table then CRC chunks do not themselves store
+				// a CRC anywhere.
+				return -1;
+			}
+			int globalChunkNum = crcChunkNum / CRCS_PER_CRC_CHUNK;
+			int positionWithinGlobalChunk = crcChunkNum % CRCS_PER_CRC_CHUNK;
+
+			return globalChunkNum * CHUNK_SIZE + positionWithinGlobalChunk * CRC_SIZE;
+		} else {
+			int physicalChunkNum = crcChunkNumberToPhysicalChunk(crcChunkNum);
+			return physicalChunkNum * CHUNK_SIZE + positionWithinChunk * CRC_SIZE;
+		}
+	}
+
+	private boolean isCrcChunk(long physicalChunk) {
+		long numAfterHeader = (physicalChunk - NUM_GLOBAL_CRC_CHUNKS);
+		return (numAfterHeader % (CRCS_PER_CRC_CHUNK + 1)) == 0;
+	}
+
+	private long physicalAddressToLogicalAddress(long physicalAddress) {
+		int physicalChunk = (int)(physicalAddress / CHUNK_SIZE);
+		int logicalChunk = physicalChunkToLogicalChunk(physicalChunk);
+		return logicalChunk * CHUNK_SIZE + (physicalAddress & Database.OFFSET_IN_CHUNK_MASK);
+	}
+
+	private long logicalAddressToPhysicalAddress(long logicalAddress) {
+		int logicalChunk = (int)(logicalAddress / CHUNK_SIZE);
+		int physicalChunk = logicalChunkToPhysicalChunk(logicalChunk);
+		return physicalChunk * CHUNK_SIZE + (logicalAddress & Database.OFFSET_IN_CHUNK_MASK);
+	}
+
+	private static int crcChunkNumberToPhysicalChunk(int crcChunkNumber) {
+		return crcChunkNumber * (CRCS_PER_CRC_CHUNK + 1) + NUM_GLOBAL_CRC_CHUNKS;
+	}
+
+	private static int physicalChunkToLogicalChunk(int physicalChunk) {
+		int delta = physicalChunk - NUM_GLOBAL_CRC_CHUNKS;
+		return delta - (delta + CRCS_PER_CRC_CHUNK) / (CRCS_PER_CRC_CHUNK + 1);
+	}
+
+	private static int logicalChunkToPhysicalChunk(int logicalChunk) {
+		int numCrcChunksBeforehand = (logicalChunk / CRCS_PER_CRC_CHUNK) + 1;
+		return logicalChunk + NUM_GLOBAL_CRC_CHUNKS + numCrcChunksBeforehand;
 	}
 
 	private static int divideRoundingUp(int num, int den) {
@@ -237,11 +334,16 @@ public class Database {
 		// Clear the first chunk.
 		this.fHeaderChunk.clear(0, CHUNK_SIZE);
 		// Chunks have been removed from the cache, so we may just reset the array of chunks.
-		this.fChunks = new Chunk[] {null};
+		int minChunks = this.fHeaderChunk.fPhysicalIndex + 1;
+		this.fChunks = new Chunk[minChunks];
+		this.fChunks[this.fHeaderChunk.fPhysicalIndex] = this.fHeaderChunk;
 		this.fChunksUsed = this.fChunksAllocated = this.fChunks.length;
 		try {
-			this.fHeaderChunk.flush();	// Zero out header chunk.
-			this.fFile.getChannel().truncate(CHUNK_SIZE);	// Truncate database.
+			int newSize = minChunks * CHUNK_SIZE;
+			final ByteBuffer buf= ByteBuffer.wrap(new byte[newSize]);
+			FileChannel channel = this.fFile.getChannel();
+			channel.write(buf, 0);
+			channel.truncate(newSize);	// Truncate database.
 		} catch (IOException e) {
 			Package.log(e);
 		}
@@ -269,7 +371,9 @@ public class Database {
 				Chunk chunk= this.fChunks[i];
 				if (chunk != null) {
 					this.fCache.remove(chunk);
-					this.fChunks[i]= null;
+					if (this.fChunks[i] != this.fHeaderChunk) {
+						this.fChunks[i]= null;
+					}
 				}
 			}
 		}
@@ -281,29 +385,57 @@ public class Database {
 	 */
 	public Chunk getChunk(long offset) throws IndexException {
 		assertLocked();
-		if (offset < CHUNK_SIZE) {
-			return this.fHeaderChunk;
-		}
 		long long_index = offset / CHUNK_SIZE;
 		assert long_index < Integer.MAX_VALUE;
+		final int logicalIndex = (int) long_index;
+		final int physicalIndex = logicalChunkToPhysicalChunk(logicalIndex);
+		return getPhysicalChunk(physicalIndex);
+	}
 
+	private Chunk getPhysicalChunk(final int physicalIndex) {
 		synchronized (this.fCache) {
 			assert this.fLocked;
-			final int index = (int) long_index;
-			if (index < 0 || index >= this.fChunks.length) {
+			if (physicalIndex < 0 || physicalIndex >= this.fChunks.length) {
 				databaseCorruptionDetected();
 			}
-			Chunk chunk= this.fChunks[index];
+			boolean errorCheckingRequired = false;
+			Chunk chunk= this.fChunks[physicalIndex];
 			if (chunk == null) {
 				this.cacheMisses++;
-				chunk = this.fChunks[index] = new Chunk(this, index);
+				chunk = this.fChunks[physicalIndex] = new Chunk(this, physicalIndex);
 				chunk.read();
+				errorCheckingRequired = true;
 			} else {
 				this.cacheHits++;
 			}
 			this.fCache.add(chunk, this.fExclusiveLock);
+			
+			if (errorCheckingRequired) {
+				int savedCrc = getSavedCrcForPhysicalChunk(physicalIndex);
+				if (savedCrc != 0) {
+					int actualCrc = chunk.computeCrc();
+					if (savedCrc != actualCrc) {
+						databaseCorruptionDetected();
+					}
+				}
+			}
 			return chunk;
 		}
+	}
+
+	/**
+	 * Returns the saved CRC for the given physical chunk or 0 if no CRC is
+	 */
+	private int getSavedCrcForPhysicalChunk(int physicalIndex) {
+		int physicalAddress = getPhysicalAddressForCrcOfPhysicalChunk(physicalIndex);
+
+		if (physicalAddress == -1) {
+			return 0;
+		}
+
+		int physicalChunk = physicalAddress / CHUNK_SIZE;
+		Chunk chunk = getPhysicalChunk(physicalChunk);
+		return chunk.getCrc(physicalAddress);
 	}
 
 	public void assertLocked() {
@@ -356,7 +488,7 @@ public class Database {
 		Chunk chunk;
 		if (freeblock == 0) {
 			// Allocate a new chunk.
-			freeblock= createNewChunk();
+			freeblock= createNewLogicalChunk();
 			useDeltas = MAX_BLOCK_DELTAS;
 			chunk = getChunk(freeblock);
 		} else {
@@ -380,6 +512,17 @@ public class Database {
 
 		this.malloced += usedSize;
 		return freeblock + BLOCK_HEADER_SIZE;
+	}
+
+	private long createNewLogicalChunk() throws IndexException {
+		long physicalChunkPhysicalAddress = createNewChunk();
+
+		int physicalChunkNumber = (int)(physicalChunkPhysicalAddress / CHUNK_SIZE);
+		if (isCrcChunk(physicalChunkNumber)) {
+			physicalChunkPhysicalAddress = createNewChunk();
+		}
+ 
+		return physicalAddressToLogicalAddress(physicalChunkPhysicalAddress);
 	}
 
 	private long createNewChunk() throws IndexException {
@@ -423,7 +566,10 @@ public class Database {
 	/**
 	 * For testing purposes, only.
 	 */
-	private long createNewChunks(int numChunks) throws IndexException {
+	private long createNewChunks(int numLogicalChunks) throws IndexException {
+		int oldNumLogicalChunks = physicalChunkToLogicalChunk(this.fChunks.length);
+		int newNumChunks = logicalChunkToPhysicalChunk(oldNumLogicalChunks + numLogicalChunks);
+		int numChunks = newNumChunks - this.fChunksAllocated;
 		assert this.fExclusiveLock;
 		synchronized (this.fCache) {
 			final int oldLen= this.fChunks.length;
@@ -432,7 +578,8 @@ public class Database {
 			for (int i = oldLen; i < oldLen + numChunks; i++) {
 				newchunks[i]= null;
 			}
-			final Chunk chunk= new Chunk(this, oldLen + numChunks - 1);
+			int newChunkIndex = oldLen + numChunks - 1;
+			final Chunk chunk= new Chunk(this, newChunkIndex);
 			chunk.fDirty= true;
 			newchunks[ oldLen + numChunks - 1 ] = chunk;
 			this.fChunks= newchunks;
@@ -697,8 +844,8 @@ public class Database {
 	 * Called from any thread via the cache, protected by {@link #fCache}.
 	 */
 	void releaseChunk(final Chunk chunk) {
-		if (!chunk.fLocked) {
-			this.fChunks[chunk.fSequenceNumber]= null;
+		if (!chunk.fLocked && chunk != this.fHeaderChunk) {
+			this.fChunks[chunk.fPhysicalIndex]= null;
 		}
 	}
 
@@ -723,12 +870,13 @@ public class Database {
 		this.fLocked= val;
 	}
 
-	public void giveUpExclusiveLock(final boolean flush) throws IndexException {
+	public void giveUpExclusiveLock() throws IndexException {
 		if (this.fExclusiveLock) {
+			updateVersion();
 			try {
 				ArrayList<Chunk> dirtyChunks= new ArrayList<>();
 				synchronized (this.fCache) {
-					for (int i= 1; i < this.fChunksUsed; i++) {
+					for (int i= 0; i < this.fChunksUsed; i++) {
 						Chunk chunk= this.fChunks[i];
 						if (chunk != null) {
 							if (chunk.fCacheIndex < 0) {
@@ -737,14 +885,14 @@ public class Database {
 									dirtyChunks.add(chunk); // Keep in fChunks until it is flushed.
 								} else {
 									chunk.fLocked= false;
-									this.fChunks[i]= null;
+									if (this.fChunks[i] != this.fHeaderChunk) {
+										this.fChunks[i]= null;
+									}
 								}
 							} else if (chunk.fLocked) {
 								// Locked chunk, still in cache.
 								if (chunk.fDirty) {
-									if (flush) {
-										dirtyChunks.add(chunk);
-									}
+									dirtyChunks.add(chunk);
 								} else {
 									chunk.fLocked= false;
 								}
@@ -755,10 +903,17 @@ public class Database {
 					}
 				}
 				// Also handles header chunk.
-				flushAndUnlockChunks(dirtyChunks, flush);
+				flushAndUnlockChunks(dirtyChunks);
 			} finally {
 				this.fExclusiveLock= false;
 			}
+		}
+	}
+
+	private void updateVersion() {
+		int oldVersion = this.fHeaderChunk.getInt(VERSION_OFFSET);
+		if (oldVersion != this.fVersion) {
+			this.fHeaderChunk.putInt(VERSION_OFFSET, this.fVersion);
 		}
 	}
 
@@ -766,7 +921,7 @@ public class Database {
 		assert this.fLocked;
 		if (this.fExclusiveLock) {
 			try {
-				giveUpExclusiveLock(true);
+				giveUpExclusiveLock();
 			} finally {
 				setExclusiveLock();
 			}
@@ -776,7 +931,7 @@ public class Database {
 		// Be careful as other readers may access chunks concurrently.
 		ArrayList<Chunk> dirtyChunks= new ArrayList<>();
 		synchronized (this.fCache) {
-			for (int i= 1; i < this.fChunksUsed ; i++) {
+			for (int i= 0; i < this.fChunksUsed ; i++) {
 				Chunk chunk= this.fChunks[i];
 				if (chunk != null && chunk.fDirty) {
 					dirtyChunks.add(chunk);
@@ -785,52 +940,88 @@ public class Database {
 		}
 
 		// Also handles header chunk.
-		flushAndUnlockChunks(dirtyChunks, true);
+		flushAndUnlockChunks(dirtyChunks);
 	}
 
-	private void flushAndUnlockChunks(final ArrayList<Chunk> dirtyChunks, boolean isComplete) throws IndexException {
+	private void flushAndUnlockChunks(final ArrayList<Chunk> dirtyChunks) throws IndexException {
 		assert !Thread.holdsLock(this.fCache);
 		synchronized (this.fHeaderChunk) {
 			final boolean haveDirtyChunks = !dirtyChunks.isEmpty();
-			if (haveDirtyChunks || this.fHeaderChunk.fDirty) {
-				markFileIncomplete();
-			}
+
 			if (haveDirtyChunks) {
+				List<Chunk> mergedCrcAndDataChunks = new ArrayList<>();
+				List<Chunk> crcChunksOnly = new ArrayList<>();
+				Chunk lastCrcChunk = null;
+				// Update the local CRC tables and store the ordered list of dirty CRC blocks and data blocks
+				// in the mergedCrcAndDataChunks list.
 				for (Chunk chunk : dirtyChunks) {
 					if (chunk.fDirty) {
+						int physicalAddress = getPhysicalAddressForCrcOfPhysicalChunk(chunk.fPhysicalIndex);
+
+						if (physicalAddress != -1) {
+							int physicalChunk = physicalAddress / CHUNK_SIZE;
+							Chunk crcChunk = getPhysicalChunk(physicalChunk);
+
+							if (lastCrcChunk != crcChunk) {
+								// The CRC chunks come before the data chunks they affect
+								mergedCrcAndDataChunks.add(crcChunk);
+								crcChunksOnly.add(crcChunk);
+								lastCrcChunk = crcChunk;
+							}
+
+							int crc = chunk.computeCrc();
+							crcChunk.putCrc(physicalAddress, crc);
+						}
+						mergedCrcAndDataChunks.add(chunk);
+					}
+				}
+
+				// Update the global CRC table.
+				List<Chunk> globalCrcChunks = new ArrayList<>();
+				for (Chunk chunk : crcChunksOnly) {
+					int physicalAddress = getPhysicalAddressForCrcOfPhysicalChunk(chunk.fPhysicalIndex);
+					if (physicalAddress != -1) {
+						int physicalChunk = physicalAddress / CHUNK_SIZE;
+						Chunk crcChunk = getPhysicalChunk(physicalChunk);
+
+						if (lastCrcChunk != crcChunk) {
+							// The CRC chunks come before the data chunks they affect
+							globalCrcChunks.add(crcChunk);
+							lastCrcChunk = crcChunk;
+						}
+
+						int crc = chunk.computeCrc();
+						crcChunk.putCrc(physicalAddress, crc);
+					}
+				}
+
+				List<Chunk> allChunksToWrite = new ArrayList<>();
+				allChunksToWrite.addAll(globalCrcChunks);
+				allChunksToWrite.addAll(mergedCrcAndDataChunks);
+
+				// Now write the dirty chunks (except for the header chunk, which we write last)
+				for (Chunk chunk : allChunksToWrite) {
+					if (chunk != this.fHeaderChunk) {
 						chunk.flush();
 					}
 				}
 
 				// Only after the chunks are flushed we may unlock and release them.
 				synchronized (this.fCache) {
-					for (Chunk chunk : dirtyChunks) {
+					for (Chunk chunk : allChunksToWrite) {
 						chunk.fLocked= false;
 						if (chunk.fCacheIndex < 0) {
-							this.fChunks[chunk.fSequenceNumber]= null;
+							if (chunk != this.fHeaderChunk) {
+								this.fChunks[chunk.fPhysicalIndex]= null;
+							}
 						}
 					}
 				}
 			}
 
-			if (isComplete) {
-				if (this.fHeaderChunk.fDirty || this.fIsMarkedIncomplete) {
-					this.fHeaderChunk.putInt(VERSION_OFFSET, this.fVersion);
-					this.fHeaderChunk.flush();
-					this.fIsMarkedIncomplete= false;
-				}
-			}
-		}
-	}
-
-	private void markFileIncomplete() throws IndexException {
-		if (!this.fIsMarkedIncomplete) {
-			this.fIsMarkedIncomplete= true;
-			try {
-				final ByteBuffer buf= ByteBuffer.wrap(new byte[4]);
-				this.fFile.getChannel().write(buf, 0);
-			} catch (IOException e) {
-				throw new IndexException(new DBStatus(e));
+			if (this.fHeaderChunk.fDirty) {
+				this.fHeaderChunk.flush();
+				this.fIsMarkedIncomplete= false;
 			}
 		}
 	}

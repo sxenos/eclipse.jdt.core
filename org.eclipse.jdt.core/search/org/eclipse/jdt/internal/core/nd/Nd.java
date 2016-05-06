@@ -333,7 +333,7 @@ public class Nd {
 			clearResultCache();
 		}
 		try {
-			this.db.giveUpExclusiveLock(flush);
+			this.db.giveUpExclusiveLock();
 		} catch (IndexException e) {
 			Package.log(e);
 		}

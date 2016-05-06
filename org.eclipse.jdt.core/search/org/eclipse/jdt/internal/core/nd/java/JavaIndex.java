@@ -36,9 +36,9 @@ import java.util.List;
  */
 public class JavaIndex {
 	// Version constants
-	static final int CURRENT_VERSION = Nd.version(1, 26);
-	static final int MAX_SUPPORTED_VERSION = Nd.version(1, 26);
-	static final int MIN_SUPPORTED_VERSION = Nd.version(1, 26);
+	static final int CURRENT_VERSION = Nd.version(1, 27);
+	static final int MAX_SUPPORTED_VERSION = Nd.version(1, 27);
+	static final int MIN_SUPPORTED_VERSION = Nd.version(1, 27);
 
 	// Fields for the search header
 	public static final FieldSearchIndex<NdResourceFile> FILES;

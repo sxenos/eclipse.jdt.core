@@ -84,29 +84,34 @@ public final class StreamHasher {
 	 * @param chunk Contents of the chunk.
 	 */
 	public void addChunk(char[] chunk) {
-		for (int pos = 0; pos < chunk.length; pos++, this.hashedOffset++) {
+		for (int pos = 0; pos < chunk.length; pos++) {
 			char cc = chunk[pos];
-			switch (this.state++) {
-			case -1:
-				throw new IllegalStateException("addChunk is called after computeHash."); //$NON-NLS-1$
-			case 0:
-			case 2:
-			case 4:
-				this.previousCharacter = cc;
-				break;
-			case 1:
-				this.a += this.previousCharacter | (cc << 16);
-				break;
-			case 3:
-				this.b += this.previousCharacter | (cc << 16);
-				break;
-			case 5:
-				this.c += this.previousCharacter | (cc << 16);
-				mix();
-				this.state = 0;
-				break;
-			}
+			addChar(cc);
 		}
+	}
+
+	public void addChar(char cc) {
+		switch (this.state++) {
+		case -1:
+			throw new IllegalStateException("addChunk is called after computeHash."); //$NON-NLS-1$
+		case 0:
+		case 2:
+		case 4:
+			this.previousCharacter = cc;
+			break;
+		case 1:
+			this.a += this.previousCharacter | (cc << 16);
+			break;
+		case 3:
+			this.b += this.previousCharacter | (cc << 16);
+			break;
+		case 5:
+			this.c += this.previousCharacter | (cc << 16);
+			mix();
+			this.state = 0;
+			break;
+		}
+		this.hashedOffset++;
 	}
 
 	/**
@@ -232,5 +237,30 @@ public final class StreamHasher {
 		this.a ^= this.c; this.a -= Integer.rotateLeft(this.c, 4);
 		this.b ^= this.a; this.b -= Integer.rotateLeft(this.a, 14);
 		this.c ^= this.b; this.c -= Integer.rotateLeft(this.b, 24);
+	}
+
+	/**
+	 * Hashes the given number of bytes from the start of the given array.
+	 */
+	public void addChunk(byte[] buffer, int length) {
+		for (int idx = 0; idx < length; idx += 2) {
+			byte byte0 = buffer[idx];
+			byte byte1 = buffer[idx + 1];
+
+			char nextChar = (char)((int)byte0 + (((int)byte1) << 8));
+			addChar(nextChar);
+		}
+
+		if ((length % 2) == 1) {
+			char nextChar = (char)buffer[length - 1];
+			addChar(nextChar);
+		}
+	}
+
+	/**
+	 * Hashes the bytes in the given array
+	 */
+	public void addChunk(byte[] buffer) {
+		addChunk(buffer, buffer.length);
 	}
 }
