@@ -298,7 +298,7 @@ private void buildFromPotentialSubtypes(String[] allPotentialSubTypes, HashSet l
 		length++;
 	}
 
-	subMonitor.split(10);
+	subMonitor.split(5);
 	/*
 	 * Sort in alphabetical order so that potential subtypes are grouped per project
 	 */
@@ -306,12 +306,12 @@ private void buildFromPotentialSubtypes(String[] allPotentialSubTypes, HashSet l
 
 	ArrayList potentialSubtypes = new ArrayList();
 	try {
-		SubMonitor loopMonitor = subMonitor.split(90);
+		SubMonitor loopMonitor = subMonitor.split(95);
 		// create element infos for subtypes
 		HandleFactory factory = new HandleFactory();
 		IJavaProject currentProject = null;
 		for (int i = 0; i < length; i++) {
-			loopMonitor.setWorkRemaining(length - i);
+			loopMonitor.setWorkRemaining(length - i + 1);
 			try {
 				String resourcePath = allPotentialSubTypes[i];
 
@@ -347,6 +347,7 @@ private void buildFromPotentialSubtypes(String[] allPotentialSubTypes, HashSet l
 			}
 		}
 
+		loopMonitor.setWorkRemaining(2);
 		// build last project
 		try {
 			if (currentProject == null) {
@@ -358,10 +359,12 @@ private void buildFromPotentialSubtypes(String[] allPotentialSubTypes, HashSet l
 					potentialSubtypes.add(focusType.getCompilationUnit());
 				}
 			}
-			buildForProject((JavaProject)currentProject, potentialSubtypes, workingCopies, localTypes, subMonitor.split(5));
+			buildForProject((JavaProject)currentProject, potentialSubtypes, workingCopies, localTypes, loopMonitor.split(1));
 		} catch (JavaModelException e) {
 			// ignore
 		}
+
+		loopMonitor.setWorkRemaining(1);
 
 		// Compute hierarchy of focus type if not already done (case of a type with potential subtypes that are not real subtypes)
 		if (!this.hierarchy.contains(focusType)) {
@@ -373,7 +376,7 @@ private void buildFromPotentialSubtypes(String[] allPotentialSubTypes, HashSet l
 				} else {
 					potentialSubtypes.add(focusType.getCompilationUnit());
 				}
-				buildForProject((JavaProject)currentProject, potentialSubtypes, workingCopies, localTypes, subMonitor.split(5));
+				buildForProject((JavaProject)currentProject, potentialSubtypes, workingCopies, localTypes, loopMonitor.split(1));
 			} catch (JavaModelException e) {
 				// ignore
 			}
@@ -422,7 +425,6 @@ protected IBinaryType createInfoFromClassFileInJar(Openable classFile) {
  * Returns null if they could not be determine.
  */
 private String[] determinePossibleSubTypes(final HashSet localTypes, IProgressMonitor monitor) {
-
 	class PathCollector implements IPathRequestor {
 		HashSet paths = new HashSet(10);
 		public void acceptPath(String path, boolean containsLocalTypes) {
@@ -434,18 +436,13 @@ private String[] determinePossibleSubTypes(final HashSet localTypes, IProgressMo
 	}
 	PathCollector collector = new PathCollector();
 
-	try {
-		if (monitor != null) monitor.beginTask("", MAXTICKS); //$NON-NLS-1$
-		searchAllPossibleSubTypes(
-			getType(),
-			this.scope,
-			this.binariesFromIndexMatches,
-			collector,
-			IJavaSearchConstants.WAIT_UNTIL_READY_TO_SEARCH,
-			monitor);
-	} finally {
-		if (monitor != null) monitor.done();
-	}
+	searchAllPossibleSubTypes(
+		getType(),
+		this.scope,
+		this.binariesFromIndexMatches,
+		collector,
+		IJavaSearchConstants.WAIT_UNTIL_READY_TO_SEARCH,
+		monitor);
 
 	HashSet paths = collector.paths;
 	int length = paths.size();
@@ -470,7 +467,7 @@ private String[] determinePossibleSubTypes(final HashSet localTypes, IProgressMo
  * @param binariesFromIndexMatches
  * @param pathRequestor
  * @param waitingPolicy
- * @param progressMonitor
+ * @param monitor
  */
 public static void searchAllPossibleSubTypes(
 	IType type,
@@ -478,7 +475,7 @@ public static void searchAllPossibleSubTypes(
 	final Map binariesFromIndexMatches,
 	final IPathRequestor pathRequestor,
 	int waitingPolicy,	// WaitUntilReadyToSearch | ForceImmediateSearch | CancelIfNotReadyToSearch
-	final IProgressMonitor progressMonitor) {
+	final IProgressMonitor monitor) {
 
 	if (JavaIndex.isEnabled()) {
 		SubMonitor subMonitor = SubMonitor.convert(progressMonitor, 2);
@@ -646,7 +643,7 @@ private static void legacySearchAllPossibleSubTypes(
 	queue.add(type.getElementName().toCharArray());
 	try {
 		while (queue.start <= queue.end) {
-			subMonitor.setWorkRemaining(Math.max(queue.end - queue.start, 1));
+			subMonitor.setWorkRemaining(Math.max(queue.end - queue.start + 1, 100));
 
 			// all subclasses of OBJECT are actually all types
 			char[] currentTypeName = queue.retrieve();
