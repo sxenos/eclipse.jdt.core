@@ -6444,7 +6444,7 @@ public void testBug496942() {
 		});
 }
 public void testBug496574() {
-	runNegativeTest(
+	runConformTest(
 		new String[] {
 			"EclipseNeonBug.java",
 			"import java.util.ArrayList;\n" + 
@@ -6487,16 +6487,233 @@ public void testBug496574() {
 			"	    }\n" + 
 			"	}\n" + 
 			"}\n"
+		});
+}
+public void testBug496579() {
+	runConformTest(
+		new String[] {
+			"EclipseNeonBug2.java",
+			"import java.util.HashMap;\n" + 
+			"import java.util.Map;\n" + 
+			"import java.util.stream.Collectors;\n" + 
+			"\n" + 
+			"public class EclipseNeonBug2 {\n" + 
+			"\n" + 
+			"	public static void main(String[] args) {\n" + 
+			"		Map<String, Map<String, Object>> stuff = new HashMap<>();\n" + 
+			"		Map<String, Map<String, Integer>> result = stuff.entrySet().stream()\n" + 
+			"			.collect(Collectors.toMap(\n" + 
+			"					k -> k.getKey(), \n" + 
+			"					o -> {\n" + 
+			"						Map<String, Object> child = o.getValue();\n" + 
+			"						return child.entrySet().stream().collect(Collectors.toMap(\n" + 
+			"								k -> k.getKey(), \n" + 
+			"								v -> Integer.parseInt(v.getValue().toString())));\n" + 
+			"					}));\n" + 
+			"	}\n" + 
+			"	\n" + 
+			"}\n"
+		});
+}
+public void testBug496761() {
+	runConformTest(
+		new String[] {
+			"RepoCase.java",
+			"import java.util.HashMap;\n" + 
+			"import java.util.Map;\n" + 
+			"import java.util.Map.Entry;\n" + 
+			"import java.util.Optional;\n" + 
+			"import java.util.function.Supplier;\n" + 
+			"import java.util.stream.Collectors;\n" + 
+			"\n" + 
+			"public class RepoCase {\n" + 
+			"	private Map<String, Supplier<?>> dependencyMap = new HashMap<>();\n" + 
+			"	\n" + 
+			"	void compilerNPE() {\n" + 
+			"// Leads to NPE in compiler\n" + 
+			"		Map<String, Object> map = Optional.ofNullable(this.dependencyMap)\n" + 
+			"				.map(m -> m.entrySet().stream().collect(Collectors.toMap(Entry::getKey, e -> (Object) e.getValue().get())))\n" + 
+			"				.orElse(new HashMap<>());\n" + 
+			"		\n" + 
+			"// Compiler error (might be the real cause for the above NPE)		\n" + 
+			"		Optional<Map<String, Object>> o = Optional.ofNullable(this.dependencyMap)\n" + 
+			"			.map(m -> m.entrySet().stream().collect(Collectors.toMap(Entry::getKey, e -> (Object) e.getValue().get())));\n" + 
+			"	}\n" + 
+			"}\n"
+		});
+}
+public void testBug496624() {
+	runConformTest(
+		new String[] {
+			"JDTNPETest.java",
+			"import java.util.*;\n" + 
+			"import java.util.stream.Collectors;\n" + 
+			"\n" + 
+			"interface HttpSession{\n" + 
+			"  Enumeration<String> getAttributeNames();\n" + 
+			"  Object getAttribute(String name);\n" + 
+			"}\n" + 
+			"public class JDTNPETest {\n" + 
+			"    \n" + 
+			"    public static void main(String[] args){\n" + 
+			"        Map<String, Object> sessionAttributes = Optional.<HttpSession>ofNullable(null)\n" + 
+			"            .map(s -> Collections.list(s.getAttributeNames()).stream()\n" + 
+			"                .collect(Collectors.toMap(name -> name, name -> s.getAttribute(name))))\n" + 
+			"            .orElse(null);\n" + 
+			"    }\n" + 
+			"\n" + 
+			"}\n"
+		});
+}
+public void testBug497193() {
+	runConformTest(
+		new String[] {
+			"EclipseBug.java",
+			"import java.util.function.Function;\n" + 
+			"\n" + 
+			"public class EclipseBug {\n" + 
+			"    public static class Class1<K, V > {\n" + 
+			"        public Class1( Function<K, V > arg ) {}\n" + 
+			"    }\n" + 
+			"\n" + 
+			"    public static <T, R> R method1( T object, Function<T, R > function ) {\n" + 
+			"        return null;\n" + 
+			"    }\n" + 
+			"\n" + 
+			"    public static class Class2 {\n" + 
+			"        public static Class2 method1( String arg ) {\n" + 
+			"            return null;\n" + 
+			"        }\n" + 
+			"\n" + 
+			"        String method2() {\n" + 
+			"            return null;\n" + 
+			"        }\n" + 
+			"    }\n" + 
+			"\n" + 
+			"    private final Class1<String, String > member = new Class1<>( arg -> method1( Class2.method1( arg ), class2 -> class2.method2() ) );\n" + 
+			"}\n"
+		});
+}
+public void testBug496578() {
+	runConformTest(
+		new String[] {
+			"Test.java",
+			"import java.util.function.BinaryOperator;\n" + 
+			"import java.util.function.Function;\n" + 
+			"\n" + 
+			"public class Test {\n" + 
+			"	private Long[] v, v_small;\n" + 
+			"	public Long method(String[] args) {\n" + 
+			"		ExecPushFactory alg = new ExecPushFactory();\n" + 
+			"        Long value = Id.prj(\n" + 
+			"                alg.reduce(0L, Long::sum,\n" + 
+			"                        alg.flatMap(x ->\n" + 
+			"                                        alg.map(y -> x * y,\n" + 
+			"                                                alg.source(v_small)),\n" + 
+			"                                alg.source(v)))).value;\n" + 
+			"        return value;\n" + 
+			"	}\n" + 
+			"}\n" + 
+			"class ExecPushFactory {\n" + 
+			"	public <T, R> App<Id.t, R> flatMap(Function<T, App<Id.t, R>> mapper, App<Id.t, T> app) {\n" + 
+			"        return null;\n" + 
+			"    }\n" + 
+			"	public <T> App<Id.t, T> source(T[] array) {\n" + 
+			"        return null;\n" + 
+			"    }\n" + 
+			"	public <T, R> App<Id.t, R> map(Function<T, R> mapper, App<Id.t, T> app) {\n" + 
+			"        return null;\n" + 
+			"    }\n" + 
+			"    public <T> App<Id.t, T> reduce(T identity, BinaryOperator<T> accumulator, App<Id.t, T> app) {\n" + 
+			"    	return null;\n" + 
+			"    }\n" + 
+			"}\n" + 
+			"class Id<T> implements App<Id.t, T>{\n" +
+			"   public T value;\n" + 
+			"	public static class t {\n" + 
+			"		\n" + 
+			"	}\n" + 
+			"	public static <A> Id<A> prj(App<Id.t, A> app) {\n" + 
+			"        return (Id<A>) app;\n" + 
+			"    }\n" + 
+			"}\n" + 
+			"interface App<C, T> {\n" + 
+			"	\n" + 
+			"}\n"
+		});
+}
+public void testBug496675() {
+	runConformTest(
+		new String[] {
+			"Test.java",
+			"public class Test {\n" + 
+			"    public class B<X, Y> {\n" + 
+			"        public class C {}\n" + 
+			"    }\n" + 
+			"    public class D<X> extends B<String, X> {}\n" + 
+			"	\n" + 
+			"    /* This fails with an internal ArrayIndexOutOfBoundsException in \n" + 
+			"     * ParameterizedTypeBinding.boundCheck. */\n" + 
+			"    public class E<X extends D<?>.C> {}\n" + 
+			"}\n"
+		});
+}
+public void testBug496675_comment4() {
+	runNegativeTest(
+			new String[] {
+				"Test.java",
+				"public class Test {\n" + 
+				"    public class B<X, Y> {\n" + 
+				"        public class C {}\n" + 
+				"    }\n" + 
+				"    public class D<X extends Number> extends B<String, X> {}\n" + 
+				"	\n" + 
+				"    /* This fails with an internal ArrayIndexOutOfBoundsException in \n" + 
+				"     * ParameterizedTypeBinding.boundCheck. */\n" + 
+				"    public class E<X extends D<String>.C> {}\n" + 
+				"}\n"
+			},
+			"----------\n" + 
+			"1. ERROR in Test.java (at line 9)\n" + 
+			"	public class E<X extends D<String>.C> {}\n" + 
+			"	                           ^^^^^^\n" + 
+			"Bound mismatch: The type String is not a valid substitute for the bounded parameter <X extends Number> of the type Test.D<X>\n" + 
+			"----------\n");
+}
+public void testBug496675_problem() {
+	runNegativeTest(
+		new String[] {
+			"Test.java",
+			"public class Test {\n" + 
+			"    <X extends wrong.D<?>.C> void m() {}\n" + 
+			"}\n"
 		},
 		"----------\n" + 
-		"1. ERROR in EclipseNeonBug.java (at line 12)\n" + 
-		"	Map<String, String> mses = Optional.ofNullable(keyValObjs)\n" + 
-		"                .filter(ms -> !ms.isEmpty())\n" + 
-		"                .map(ms -> ms.stream().collect(Collectors.toMap(\n" + 
-		"                    metafield -> metafield.getKey(),\n" + 
-		"                    metafield -> metafield.getValue())))\n" + 
-		"	                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n" + 
-		"Cannot infer type argument(s) for <U> map(Function<? super T,? extends U>)\n" + 
+		"1. ERROR in Test.java (at line 2)\n" + 
+		"	<X extends wrong.D<?>.C> void m() {}\n" + 
+		"	           ^^^^^\n" + 
+		"wrong cannot be resolved to a type\n" + 
 		"----------\n");
+}
+public void testBug496886() {
+	runConformTest(
+		new String[] {
+			"Outer.java",
+			"public interface Outer<E> {\n" + 
+			"  public interface Inner<E> {\n" + 
+			"  }\n" + 
+			"}\n",
+			"SubInterface.java",
+			"public interface SubInterface extends Outer<String> {}\n"
+		});
+	runConformTest(
+			new String[] {
+				"ProblemClass.java",
+				"class ProblemClass implements SubInterface.Inner<String> {}\n"
+			},
+			"",
+			null,
+			false, // don't flush
+			null);
 }
 }
