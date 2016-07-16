@@ -24,6 +24,7 @@ import java.util.zip.ZipFile;
 
 import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileReader;
+import org.eclipse.jdt.internal.compiler.classfmt.ClassWithExternalAnnotations;
 import org.eclipse.jdt.internal.compiler.env.AccessRuleSet;
 import org.eclipse.jdt.internal.compiler.env.INameEnvironment;
 import org.eclipse.jdt.internal.compiler.env.NameEnvironmentAnswer;
@@ -268,9 +269,14 @@ private NameEnvironmentAnswer findClass(String qualifiedTypeName, char[] typeNam
 		for (int i = 0, length = this.classpaths.length; i < length; i++) {
 			Classpath classpathEntry = this.classpaths[i];
 			if (classpathEntry.hasAnnotationFileFor(qualifiedTypeName)) {
+				// in case of 'this.annotationsFromClasspath' we indeed search for .eea entries inside the main zipFile of the entry:
 				ZipFile zip = classpathEntry instanceof ClasspathJar ? ((ClasspathJar) classpathEntry).zipFile : null;
 				try {
-					((ClassFileReader) answer.getBinaryType()).setExternalAnnotationProvider(classpathEntry.getPath(), qualifiedTypeName, zip, null);
+					if (zip == null) {
+						zip = ClassWithExternalAnnotations.getAnnotationZipFile(classpathEntry.getPath(), null);
+					}
+					answer.setBinaryType(ClassWithExternalAnnotations.create(answer.getBinaryType(), classpathEntry.getPath(), 
+							qualifiedTypeName, zip));
 					break;
 				} catch (IOException e) {
 					// ignore broken entry, keep searching

@@ -1020,6 +1020,9 @@ public class DeltaProcessor {
 							if (VERBOSE){
 								System.out.println("- External JAR CHANGED, affecting root: "+root.getElementName()); //$NON-NLS-1$
 							}
+							// TODO(sxenos): this is causing each change event for an external jar file to be fired twice.
+							// We need to preserve the clearing of cached information in the jar but defer the actual firing of
+							// the event until after the indexer has processed the jar.
 							contentChanged(root);
 							deltaContainsModifiedJar = true;
 							hasDelta = true;
@@ -2064,14 +2067,7 @@ public class DeltaProcessor {
 							this.sourceElementParserCache = null; // don't hold onto parser longer than necessary
 							startDeltas();
 						}
-						IElementChangedListener[] listeners;
-						int listenerCount;
-						synchronized (this.state) {
-							listeners = this.state.elementChangedListeners;
-							listenerCount = this.state.elementChangedListenerCount;
-						}
-						notifyTypeHierarchies(listeners, listenerCount);
-						fire(null, ElementChangedEvent.POST_CHANGE);
+						notifyAndFire(null);
 					} finally {
 						// workaround for bug 15168 circular errors not reported
 						this.state.resetOldJavaProjectNames();
@@ -2178,6 +2174,17 @@ public class DeltaProcessor {
 				JavaBuilder.buildFinished();
 				return;
 		}
+	}
+
+	public void notifyAndFire(IJavaElementDelta delta) {
+		IElementChangedListener[] listeners;
+		int listenerCount;
+		synchronized (this.state) {
+			listeners = this.state.elementChangedListeners;
+			listenerCount = this.state.elementChangedListenerCount;
+		}
+		notifyTypeHierarchies(listeners, listenerCount);
+		fire(delta, ElementChangedEvent.POST_CHANGE);
 	}
 
 	/*
