@@ -6736,4 +6736,96 @@ public void testBug497603() {
 			"}\n"
 		});
 }
+public void testBug498113a() {
+	runConformTest(
+		new String[] {
+			"NPETest.java",
+			"import java.util.*;\n" +
+			"public class NPETest {\n" + 
+			"\n" + 
+			"    public void test(\n" + 
+			"            final Set<String> set,\n" + 
+			"            final List<Dummy<String>> dummies) {\n" + 
+			"        set.stream()\n" + 
+			"            .map(Dummy::new)\n" + // true varargs invocation
+			"            .forEach(dummies::add);\n" + 
+			"    }\n" + 
+			"    \n" + 
+			"    class Dummy<T> {\n" + 
+			"        \n" + 
+			"        public Dummy(T... args) {\n" + 
+			"            \n" + 
+			"        }\n" + 
+			"    }\n" + 
+			"}\n"
+		});
+}
+public void testBug498113b() {
+	runConformTest(
+		new String[] {
+			"NPETest.java",
+			"import java.util.*;\n" +
+			"public class NPETest {\n" + 
+			"\n" + 
+			"    public void test(\n" + 
+			"            final Set<String[]> set,\n" + 
+			"            final List<Dummy<String>> dummies) {\n" + 
+			"        set.stream()\n" + 
+			"            .map(Dummy::new)\n" + // pass String[] for a strict invocation
+			"            .forEach(dummies::add);\n" + 
+			"    }\n" + 
+			"    \n" + 
+			"    class Dummy<T> {\n" + 
+			"        \n" + 
+			"        public Dummy(T... args) {\n" + 
+			"            \n" + 
+			"        }\n" + 
+			"    }\n" + 
+			"}\n"
+		});
+}
+public void testBug498362_comment0() {
+	runConformTest(
+		new String[] {
+			"X.java",
+			"import java.util.*;\n" +
+			"public class X {\n" +
+			"	static final byte[] EMPTY_BYTE_ARRAY = new byte[0];\n" +
+			"	private byte[] stream;\n" +
+			"	void test() {\n" +
+			"		this.stream = Optional.ofNullable(stream)\n" + 
+			"            .map(byte[]::clone)\n" + 
+			"            .orElse(EMPTY_BYTE_ARRAY);" +
+			"	}\n" +
+			"}\n"
+		});
+}
+public void testBug498362_comment5() {
+	runConformTest(
+		new String[] {
+			"CloneVerifyError.java",
+			"public class CloneVerifyError {\n" + 
+			"    public interface PublicCloneable<T> extends Cloneable {\n" + 
+			"        public T clone();\n" + 
+			"    }\n" + 
+			"\n" + 
+			"    public static <T> T[] clone0(T[] input) {\n" + 
+			"        return input == null ? null : input.clone();\n" + 
+			"    }\n" + 
+			"\n" + 
+			"    public static <T extends PublicCloneable<T>> T clone0(T input) {\n" + 
+			"        if (input == null) {\n" + 
+			"            return null;\n" + 
+			"        } else {\n" + 
+			"            return input.clone();\n" + 
+			"        }\n" + 
+			"    }\n" + 
+			"\n" + 
+			"    public static void main(String[] args) {\n" + 
+			"        Object[] array = null;\n" + 
+			"        clone0(array);\n" + 
+			"    }\n" + 
+			"}\n"
+		});
+}
 }
