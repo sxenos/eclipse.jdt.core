@@ -14,16 +14,21 @@ package org.eclipse.jdt.core.tests.model;
 import java.io.IOException;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
-import java.nio.file.StandardCopyOption;
-import java.nio.file.attribute.FileTime;
-import java.util.Arrays;
 
 import org.eclipse.core.resources.IWorkspaceRunnable;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IPath;
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.Path;
-import org.eclipse.jdt.core.*;
+import org.eclipse.jdt.core.IClasspathEntry;
+import org.eclipse.jdt.core.ICompilationUnit;
+import org.eclipse.jdt.core.IJavaElement;
+import org.eclipse.jdt.core.IJavaProject;
+import org.eclipse.jdt.core.IPackageFragment;
+import org.eclipse.jdt.core.IType;
+import org.eclipse.jdt.core.JavaCore;
+import org.eclipse.jdt.core.JavaModelException;
+import org.eclipse.jdt.core.WorkingCopyOwner;
 import org.eclipse.jdt.core.tests.util.Util;
 import org.eclipse.jdt.internal.core.ClasspathEntry;
 import org.eclipse.jdt.internal.core.DefaultWorkingCopyOwner;
@@ -367,9 +372,9 @@ public void testTransitionFromInvalidToValidJar() throws CoreException, IOExcept
 	 * Set up the classpath with the invalid jar, and then swap in the valid jar
 	 * and reset its timestamp to be the same as the original file.
 	 */
-	String goodJar = getExternalPath() + "goodJar.jar";
+	//String goodJar = getExternalPath() + "transitioningJar.jar";
 	String transitioningJar = getExternalPath() + "transitioningJar.jar";
-	java.nio.file.Path goodJarPath = FileSystems.getDefault().getPath(goodJar);
+	//java.nio.file.Path goodJarPath = FileSystems.getDefault().getPath(transitioningJar);
 	java.nio.file.Path transitioningJarPath = FileSystems.getDefault().getPath(transitioningJar);
 	IPath transitioningIPath = Path.fromOSString(transitioningJar);
 
@@ -385,14 +390,15 @@ public void testTransitionFromInvalidToValidJar() throws CoreException, IOExcept
 					"META-INF/MANIFEST.MF",
 					"Manifest-Version: 1.0\n"
 				},
-				goodJar,
+				transitioningJar,
 				JavaCore.VERSION_1_4);
-		char[] invalidContents = new char[(int) goodJarPath.toFile().length()];
-		Arrays.fill(invalidContents, ' ');
-		Util.createFile(transitioningJar, String.copyValueOf(invalidContents));
+//		char[] invalidContents = new char[(int) goodJarPath.toFile().length()];
+//		Arrays.fill(invalidContents, ' ');
+//		Util.createFile(transitioningJar, String.copyValueOf(invalidContents));
 
 		// Set up the project with the invalid jar and allow all of the classpath validation
 		// and delta processing to complete.
+		JavaModelManager.isInvalid = true;
 		JavaProject proj = (JavaProject) createJavaProject("P", new String[] {}, new String[] {transitioningJar}, "bin");
 		JavaModelManager.getJavaModelManager().getJavaModel().refreshExternalArchives(null, null);
 		waitForAutoBuild();
@@ -403,9 +409,10 @@ public void testTransitionFromInvalidToValidJar() throws CoreException, IOExcept
 		assertEquals("Name lookup should fail when the jar is invalid", null, type);
 
 		// Substitute the good jar, maintaining the timestamp.
-		FileTime fileTime = Files.getLastModifiedTime(transitioningJarPath);
-		Files.move(goodJarPath, transitioningJarPath, StandardCopyOption.REPLACE_EXISTING);
-		Files.setLastModifiedTime(transitioningJarPath, fileTime);
+//		FileTime fileTime = Files.getLastModifiedTime(transitioningJarPath);
+//		Files.move(goodJarPath, transitioningJarPath, StandardCopyOption.REPLACE_EXISTING);
+//		Files.setLastModifiedTime(transitioningJarPath, fileTime);
+		JavaModelManager.isInvalid = false;
 
 		// Since the timestamp hasn't changed, an external archive refresh isn't going
 		// to update the caches or cause name lookups to work.
@@ -427,7 +434,7 @@ public void testTransitionFromInvalidToValidJar() throws CoreException, IOExcept
 		type = getNameLookup(proj).findType("test1.IResource", false, NameLookup.ACCEPT_CLASSES);
 		assertFalse("Name lookup should be able to find types in the valid jar", type == null);
 	} finally {
-		Files.deleteIfExists(goodJarPath);
+//		Files.deleteIfExists(goodJarPath);
 		Files.deleteIfExists(transitioningJarPath);
 		deleteProject("P");
 	}
