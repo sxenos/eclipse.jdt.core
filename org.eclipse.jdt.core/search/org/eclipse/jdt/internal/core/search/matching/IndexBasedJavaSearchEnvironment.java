@@ -100,7 +100,7 @@ public class IndexBasedJavaSearchEnvironment implements INameEnvironment, Suffix
 	}
 
 	public static boolean isEnabled() {
-		return Platform.getPreferencesService().getBoolean(JavaCore.PLUGIN_ID, "useIndexBasedSearchEnvironment", false, //$NON-NLS-1$
+		return Platform.getPreferencesService().getBoolean(JavaCore.PLUGIN_ID, "useIndexBasedSearchEnvironment", true, //$NON-NLS-1$
 				null);
 	}
 
