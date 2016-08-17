@@ -33,6 +33,7 @@ import org.eclipse.jdt.core.IClassFile;
 import org.eclipse.jdt.core.IClasspathEntry;
 import org.eclipse.jdt.core.IJavaElement;
 import org.eclipse.jdt.core.IJavaElementDelta;
+import org.eclipse.jdt.core.IJavaModelStatusConstants;
 import org.eclipse.jdt.core.IJavaProject;
 import org.eclipse.jdt.core.IPackageFragmentRoot;
 import org.eclipse.jdt.core.IParent;
@@ -494,7 +495,7 @@ public final class Indexer {
 		int result;
 		try {
 			result = addElement(resourceFile, element, subMonitor.split(50));
-		} catch (RecoverableIndexingException e) {
+		} catch (RecoverableIndexingException | JavaModelException e) {
 			if (DEBUG) {
 				Package.log("the file " + pathString + " cannot be indexed due to a recoverable error", null); //$NON-NLS-1$ //$NON-NLS-2$
 			}
@@ -508,6 +509,11 @@ public final class Indexer {
 				this.nd.releaseWriteLock();
 			}
 			return 0;
+		} catch (RuntimeException e) {
+			if (DEBUG) {
+				Package.log("A RuntimeException occurred while indexing " + pathString, e); //$NON-NLS-1$
+			}
+			throw e;
 		}
 
 		List<NdResourceFile> allResourcesWithThisPath = Collections.emptyList();
@@ -556,10 +562,6 @@ public final class Indexer {
 
 		enqueue(result, queue, input);
 
-		// We need to call isInvalidArchive after the call to getChildren, since the invalid state
-		// is only initialized in the call to getChildren.
-		JavaModelManager.getJavaModelManager().isInvalidArchive(input.getPath());
-
 		while (!queue.isEmpty()) {
 			subMonitor.setWorkRemaining(Math.max(queue.size(), 10)).split(1);
 
@@ -573,6 +575,7 @@ public final class Indexer {
 	/**
 	 * If toEnqueue has children, they are enqueued in the given queue. If it is directly indexable,
 	 * it is added to the result. 
+	 * @throws RecoverableIndexingException 
 	 */
 	private void enqueue(List<IJavaElement> result, ArrayDeque<IJavaElement> queue,
 			IJavaElement toEnqueue) throws JavaModelException {
@@ -585,6 +588,12 @@ public final class Indexer {
 			for (IJavaElement child : parent.getChildren()) {
 				queue.add(child);
 			}
+			
+			// We need to call isInvalidArchive after the call to getChildren, since the invalid state
+			// is only initialized in the call to getChildren.
+			if (JavaModelManager.getJavaModelManager().isInvalidArchive(toEnqueue.getPath())) {
+				throw new JavaModelException(new RuntimeException(), IJavaModelStatusConstants.IO_EXCEPTION);
+			}
 		}
 	}
 
@@ -596,6 +605,10 @@ public final class Indexer {
 		SubMonitor subMonitor = SubMonitor.convert(monitor, 100);
 		List<IJavaElement> bindableElements = getBindableElements(element, subMonitor.split(10));
 		List<IClassFile> classFiles = getClassFiles(bindableElements);
+
+		if (DEBUG && classFiles.isEmpty()) {
+			Package.logInfo("The path " + element.getPath() + " contained no class files"); //$NON-NLS-1$ //$NON-NLS-2$
+		}
 
 		subMonitor.setWorkRemaining(classFiles.size());
 

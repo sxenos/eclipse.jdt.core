@@ -2725,8 +2725,15 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 		return getZipFile(path, true);
 	}
 
-	public static boolean isInvalid = false;
-	
+	/**
+	 * For use in the JDT unit tests only. Used for testing error handling. Causes an
+	 * {@link IOException} to be thrown in {@link #getZipFile} whenever it attempts to
+	 * read a zip file.
+	 * 
+	 * @noreference This field is not intended to be referenced by clients.
+	 */
+	public static boolean throwIoExceptionsInGetZipFile = false;
+
 	private ZipFile getZipFile(IPath path, boolean checkInvalidArchiveCache) throws CoreException {
 		if (checkInvalidArchiveCache && isInvalidArchive(path))
 			throw new CoreException(new Status(IStatus.ERROR, JavaCore.PLUGIN_ID, -1, Messages.status_IOException, new ZipException()));
@@ -2758,7 +2765,7 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 			if (ZIP_ACCESS_VERBOSE) {
 				System.out.println("(" + Thread.currentThread() + ") [JavaModelManager.getZipFile(IPath)] Creating ZipFile on " + localFile ); //$NON-NLS-1$ //$NON-NLS-2$
 			}
-			if (isInvalid) {
+			if (throwIoExceptionsInGetZipFile) {
 				throw new IOException();
 			}
 			zipFile = new ZipFile(localFile);
