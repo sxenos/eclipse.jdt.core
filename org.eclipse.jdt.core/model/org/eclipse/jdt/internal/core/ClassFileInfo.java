@@ -322,7 +322,7 @@ private void generateMethodInfos(IType type, IBinaryType typeInfo, HashMap newEl
 		newElements.put(method, methodInfo);
 
 		int max = pNames.length;
-		char[][] argumentNames = methodInfo.getArgumentNames();
+		char[][] argumentNames = methodInfo.getParameterNames();
 		if (argumentNames == null || argumentNames.length < max) {
 			argumentNames = new char[max][];
 			for (int j = 0; j < max; j++) {

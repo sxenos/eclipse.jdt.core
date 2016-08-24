@@ -378,7 +378,7 @@ public class SourceTypeConverter extends TypeConverter {
 
 		/* convert arguments */
 		String[] argumentTypeSignatures = methodHandle.getParameterTypes();
-		char[][] argumentNames = methodInfo.getArgumentNames();
+		char[][] argumentNames = methodInfo.getParameterNames();
 		int argumentCount = argumentTypeSignatures == null ? 0 : argumentTypeSignatures.length;
 		if (argumentCount > 0) {
 			ILocalVariable[] parameters = methodHandle.getParameters();

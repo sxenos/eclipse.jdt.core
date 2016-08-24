@@ -8,7 +8,7 @@ import org.eclipse.jdt.internal.compiler.env.IBinaryTypeAnnotation;
 public final class IndexBinaryMethod implements IBinaryMethod {
 	private int modifiers;
 	private boolean isConstructor;
-	private char[][] argumentNames;
+	private char[][] parameterNames;
 	private IBinaryAnnotation[] annotations;
 	private Object defaultValue;
 	private char[][] exceptionTypeNames;
@@ -34,8 +34,8 @@ public final class IndexBinaryMethod implements IBinaryMethod {
 		return this;
 	}
 
-	public IndexBinaryMethod setArgumentNames(char[][] argumentNames) {
-		this.argumentNames = argumentNames;
+	public IndexBinaryMethod setParameterNames(char[][] parameterNames) {
+		this.parameterNames = parameterNames;
 		return this;
 	}
 
@@ -100,8 +100,8 @@ public final class IndexBinaryMethod implements IBinaryMethod {
 	}
 
 	@Override
-	public char[][] getArgumentNames() {
-		return this.argumentNames;
+	public char[][] getParameterNames() {
+		return this.parameterNames;
 	}
 
 	@Override

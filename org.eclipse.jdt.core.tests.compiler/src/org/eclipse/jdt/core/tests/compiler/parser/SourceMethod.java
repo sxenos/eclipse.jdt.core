@@ -82,7 +82,7 @@ public String getActualName() {
 	buffer.append(this.source, this.nameSourceStart, this.nameSourceEnd - this.nameSourceStart + 1);
 	return buffer.toString();
 }
-public char[][] getArgumentNames() {
+public char[][] getParameterNames() {
 	return this.argumentNames;
 }
 public char[][] getArgumentTypeNames() {

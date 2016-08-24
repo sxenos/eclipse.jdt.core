@@ -80,7 +80,7 @@ public ILocalVariable[] getParameters() throws JavaModelException {
 		return LocalVariable.NO_LOCAL_VARIABLES;
 	}
 	ILocalVariable[] localVariables = new ILocalVariable[length];
-	char[][] argumentNames = info.getArgumentNames();
+	char[][] argumentNames = info.getParameterNames();
 	if (argumentNames == null || argumentNames.length < length) {
 		argumentNames = new char[length][];
 		for (int j = 0; j < length; j++) {
@@ -390,7 +390,7 @@ public String[] getParameterNames() throws JavaModelException {
 			}
 		}
 		// let's see if we can retrieve them from the debug infos
-		char[][] argumentNames = info.getArgumentNames();
+		char[][] argumentNames = info.getParameterNames();
 		if (argumentNames != null && argumentNames.length == paramCount) {
 			String[] names = new String[paramCount];
 			for (int i = 0; i < paramCount; i++) {

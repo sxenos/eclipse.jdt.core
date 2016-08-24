@@ -2788,7 +2788,7 @@ public class ClassFileReaderTest_1_4 extends AbstractRegressionTest {
 		int length = methodInfos.length;
 		assertTrue("At least one method", length > 0);
 		for (int i = 0; i < length; i++) {
-			char[][] argNames = methodInfos[i].getArgumentNames();
+			char[][] argNames = methodInfos[i].getParameterNames();
 			assertNotNull("No names", argNames);
 			assertEquals("Wrong size", 2, argNames.length);
 			if (CharOperation.equals(methodInfos[i].getSelector(), "<init>".toCharArray())) {
@@ -2823,7 +2823,7 @@ public class ClassFileReaderTest_1_4 extends AbstractRegressionTest {
 		int length = methodInfos.length;
 		assertTrue("At least one method", length > 0);
 		for (int i = 0; i < length; i++) {
-			char[][] argNames = methodInfos[i].getArgumentNames();
+			char[][] argNames = methodInfos[i].getParameterNames();
 			assertNotNull("No names", argNames);
 			assertEquals("Wrong size", 2, argNames.length);
 			if (CharOperation.equals(methodInfos[i].getSelector(), "<init>".toCharArray())) {
@@ -2859,7 +2859,7 @@ public class ClassFileReaderTest_1_4 extends AbstractRegressionTest {
 		int length = methodInfos.length;
 		assertTrue("At least one method", length > 0);
 		for (int i = 0; i < length; i++) {
-			char[][] argNames = methodInfos[i].getArgumentNames();
+			char[][] argNames = methodInfos[i].getParameterNames();
 			assertNotNull("No names", argNames);
 			assertEquals("Wrong size", 2, argNames.length);
 			if (CharOperation.equals(methodInfos[i].getSelector(), "<init>".toCharArray())) {

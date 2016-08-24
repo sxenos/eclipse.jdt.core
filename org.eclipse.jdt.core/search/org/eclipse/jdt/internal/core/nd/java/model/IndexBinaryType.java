@@ -419,7 +419,7 @@ public class IndexBinaryType implements IBinaryType {
 
 		return IndexBinaryMethod.create().setAnnotations(toAnnotationArray(ndMethod.getAnnotations()))
 				.setModifiers(ndMethod.getModifiers()).setIsConstructor(methodId.isConstructor())
-				.setArgumentNames(getArgumentNames(ndMethod)).setDefaultValue(unpackValue(ndMethod.getDefaultValue()))
+				.setParameterNames(getParameterNames(ndMethod)).setDefaultValue(unpackValue(ndMethod.getDefaultValue()))
 				.setExceptionTypeNames(getExceptionTypeNames(ndMethod))
 				.setGenericSignature(getGenericSignatureFor(ndMethod))
 				.setMethodDescriptor(methodId.getMethodDescriptor())
@@ -437,10 +437,10 @@ public class IndexBinaryType implements IBinaryType {
 		return result.getContents();
 	}
 	
-	private char[][] getArgumentNames(NdMethod ndMethod) {
+	private char[][] getParameterNames(NdMethod ndMethod) {
 		// Unlike what its JavaDoc says, IBinaryType returns an empty array if no argument names are available, so
 		// we replicate this weird undocumented corner case here.
-		char[][] result = ndMethod.getArgumentNames();
+		char[][] result = ndMethod.getParameterNames();
 		int lastNonEmpty = -1;
 		for (int idx = 0; idx < result.length; idx++) {
 			if (result[idx] != null && result[idx].length != 0) {

@@ -69,12 +69,30 @@ public class NdMethod extends NdBinding {
 		return METHOD_ID.get(getNd(), this.address);
 	}
 
-	public char[][] getArgumentNames() {
+	/**
+	 * Returns method parameter names that were not defined by the compiler.
+	 */
+	public char[][] getParameterNames() {
 		List<NdMethodParameter> params = getMethodParameters();
 
+		// Index incremented when param not compiler defined.
+		int index = 0;
 		char[][] result = new char[params.size()][];
 		for (int idx = 0; idx < result.length; idx++) {
-			result[idx] = params.get(idx).getName().getChars();
+			NdMethodParameter param = params.get(idx);
+			if (!param.isCompilerDefined()) {
+				result[index] = param.getName().getChars();
+				index++;
+			}
+		}
+
+		// If params were filtered out, copy params to a smaller array.
+		if (index < result.length) {
+			char[][] original = result;
+			result = new char[index][];
+			for (int idx = 0; idx < index; idx++) {
+				result[idx] = original[idx];
+			}
 		}
 		return result;
 	}
@@ -121,7 +139,7 @@ public class NdMethod extends NdBinding {
 	}
 
 	public void setFlags(int flags) {
-		METHOD_FLAGS.put(getNd(), this.address, (short)(getFlags() | flags));
+		METHOD_FLAGS.put(getNd(), this.address, (short) (getFlags() | flags));
 	}
 
 	public void setTagBits(long bits) {
