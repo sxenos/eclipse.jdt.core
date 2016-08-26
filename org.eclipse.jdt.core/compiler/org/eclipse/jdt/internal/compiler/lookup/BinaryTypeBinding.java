@@ -675,7 +675,7 @@ private MethodBinding createMethod(IBinaryMethod method, IBinaryType binaryType,
 	AnnotationBinding[][] paramAnnotations = null;
 	TypeBinding returnType = null;
 
-	char[][] argumentNames = method.getArgumentNames();
+	char[][] argumentNames = method.getParameterNames();
 
 	final boolean use15specifics = sourceLevel >= ClassFileConstants.JDK1_5;
 	/* https://bugs.eclipse.org/bugs/show_bug.cgi?id=324850, Since a 1.4 project can have a 1.5

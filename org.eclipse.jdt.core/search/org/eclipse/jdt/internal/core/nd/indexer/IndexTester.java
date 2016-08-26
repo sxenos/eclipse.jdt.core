@@ -321,8 +321,8 @@ public class IndexTester {
 		contextPrefix = contextPrefix + "." + safeString(expectedMethod.getSelector()); //$NON-NLS-1$
 		compareAnnotations(contextPrefix, expectedMethod.getAnnotations(), actualMethod.getAnnotations());
 
-		assertEquals(contextPrefix + ": The argument names didn't match.", expectedMethod.getArgumentNames(), //$NON-NLS-1$
-				actualMethod.getArgumentNames());
+		assertEquals(contextPrefix + ": The argument names didn't match.", expectedMethod.getParameterNames(), //$NON-NLS-1$
+				actualMethod.getParameterNames());
 
 		assertEquals(contextPrefix + ": The default values didn't match.", expectedMethod.getDefaultValue(), //$NON-NLS-1$
 				actualMethod.getDefaultValue());

@@ -25,5 +25,5 @@ boolean isConstructor();
  * or null if the argument names are not available.
  */
 
-char[][] getArgumentNames();
+char[][] getParameterNames();
 }

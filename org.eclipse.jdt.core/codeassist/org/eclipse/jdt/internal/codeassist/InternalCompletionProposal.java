@@ -255,9 +255,9 @@ public class InternalCompletionProposal extends CompletionProposal {
 					}
 				} else {
 					IBinaryMethod info = (IBinaryMethod) ((JavaElement)method).getElementInfo();
-					char[][] argumentNames = info.getArgumentNames();
-					if (argumentNames != null && argumentNames.length == length) {
-						parameters = argumentNames;
+					char[][] paramNames = info.getParameterNames();
+					if (paramNames != null && paramNames.length == length) {
+						parameters = paramNames;
 						return parameters;
 					}
 

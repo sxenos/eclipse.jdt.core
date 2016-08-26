@@ -46,7 +46,7 @@ public abstract class SourceMethodElementInfo extends AnnotatableInfo implements
 	 */
 	protected ITypeParameter[] typeParameters = TypeParameter.NO_TYPE_PARAMETERS;
 
-public char[][] getArgumentNames() {
+public char[][] getParameterNames() {
 	return this.argumentNames;
 }
 public char[][] getExceptionTypeNames() {

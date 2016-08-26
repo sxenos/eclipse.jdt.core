@@ -286,7 +286,7 @@ public class ClassFileToIndexConverter {
 			parameterFieldDescriptors.add(readNextFieldDescriptor(descriptor));
 		}
 
-		char[][] parameterNames = next.getArgumentNames();
+		char[][] parameterNames = next.getParameterNames();
 		int numArgumentsInGenericSignature = countMethodArguments(signature);
 		int numCompilerDefinedParameters = Math.max(0,
 				parameterFieldDescriptors.size() - numArgumentsInGenericSignature);

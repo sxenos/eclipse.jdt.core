@@ -313,8 +313,8 @@ public class MethodParametersAttributeTest extends AbstractRegressionTest {
 		assertNotNull("No method infos", methodInfos);
 		int length = methodInfos.length;
 		assertEquals("Must have four methods", 4, length);
-		assertEquals("finalMessage", new String(methodInfos[2].getArgumentNames()[0]));
-		assertEquals("mutableMessage", new String(methodInfos[2].getArgumentNames()[1]));
+		assertEquals("finalMessage", new String(methodInfos[2].getParameterNames()[0]));
+		assertEquals("mutableMessage", new String(methodInfos[2].getParameterNames()[1]));
 	}
 
 	public void test005() throws Exception {
@@ -326,8 +326,8 @@ public class MethodParametersAttributeTest extends AbstractRegressionTest {
 		assertNotNull("No method infos", methodInfos);
 		int length = methodInfos.length;
 		assertEquals("Must have two methods", 2, length);
-		assertEquals("this$0", new String(methodInfos[0].getArgumentNames()[0]));
-		assertEquals("val$capturedB", new String(methodInfos[0].getArgumentNames()[1]));
+		assertEquals("this$0", new String(methodInfos[0].getParameterNames()[0]));
+		assertEquals("val$capturedB", new String(methodInfos[0].getParameterNames()[1]));
 	}
 	public void test006() throws Exception {
 		// Test that the code generator can emit the names, so the ClassFileReader may read them back
@@ -347,12 +347,12 @@ public class MethodParametersAttributeTest extends AbstractRegressionTest {
 			assertNotNull("No methods", methods);
 			assertEquals("Wrong size", 2, methods.length);
 			assertEquals("Wrong name", "<init>", new String(methods[0].getSelector()));
-			char[][] argumentNames = methods[0].getArgumentNames();
+			char[][] argumentNames = methods[0].getParameterNames();
 			assertEquals("<init> should have 1 parameter", 1, argumentNames.length);
 			assertEquals("wholeNumber", new String(argumentNames[0]));
 			assertEquals("Wrong name", "foo", new String(methods[1].getSelector()));
-			assertEquals("pluggedTheHoles", new String(methods[1].getArgumentNames()[0]));
-			assertEquals("yesItFloats", new String(methods[1].getArgumentNames()[1]));
+			assertEquals("pluggedTheHoles", new String(methods[1].getParameterNames()[0]));
+			assertEquals("yesItFloats", new String(methods[1].getParameterNames()[1]));
 		} catch (ClassFormatException e) {
 			assertTrue(false);
 		} catch (IOException e) {

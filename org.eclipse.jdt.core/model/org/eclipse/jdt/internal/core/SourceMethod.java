@@ -116,7 +116,7 @@ public int getNumberOfParameters() {
  */
 public String[] getParameterNames() throws JavaModelException {
 	SourceMethodElementInfo info = (SourceMethodElementInfo) getElementInfo();
-	char[][] names= info.getArgumentNames();
+	char[][] names= info.getParameterNames();
 	return CharOperation.toStrings(names);
 }
 /**

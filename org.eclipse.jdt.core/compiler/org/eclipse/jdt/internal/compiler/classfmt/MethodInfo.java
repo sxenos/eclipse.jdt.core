@@ -246,9 +246,9 @@ public IBinaryAnnotation[] getAnnotations() {
 	return null;
 }
 /**
- * @see org.eclipse.jdt.internal.compiler.env.IGenericMethod#getArgumentNames()
+ * @see org.eclipse.jdt.internal.compiler.env.IGenericMethod#getParameterNames()
  */
-public char[][] getArgumentNames() {
+public char[][] getParameterNames() {
 	if (this.argumentNames == null) {
 		readCodeAttribute();
 	}
@@ -348,7 +348,7 @@ protected void initialize() {
 	getMethodDescriptor();
 	getExceptionTypeNames();
 	getGenericSignature();
-	getArgumentNames();
+	getParameterNames();
 	reset();
 }
 /**

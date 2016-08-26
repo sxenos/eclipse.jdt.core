@@ -10102,7 +10102,7 @@ public final class CompletionEngine
 					if(len == 1) {
 						try {
 							SourceMethod sourceMethod = (SourceMethod) foundMethods[0];
-							parameterNames = ((SourceMethodElementInfo) sourceMethod.getElementInfo()).getArgumentNames();
+							parameterNames = ((SourceMethodElementInfo) sourceMethod.getElementInfo()).getParameterNames();
 						} catch (JavaModelException e) {
 							// method doesn't exist: ignore
 						}
