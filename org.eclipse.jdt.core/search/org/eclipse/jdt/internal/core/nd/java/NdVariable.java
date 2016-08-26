@@ -16,6 +16,7 @@ import org.eclipse.jdt.internal.core.nd.field.FieldInt;
 import org.eclipse.jdt.internal.core.nd.field.FieldLong;
 import org.eclipse.jdt.internal.core.nd.field.FieldManyToOne;
 import org.eclipse.jdt.internal.core.nd.field.FieldOneToOne;
+import org.eclipse.jdt.internal.core.nd.field.FieldShort;
 import org.eclipse.jdt.internal.core.nd.field.FieldString;
 import org.eclipse.jdt.internal.core.nd.field.StructDef;
 
@@ -23,7 +24,7 @@ import org.eclipse.jdt.internal.core.nd.field.StructDef;
  * @since 3.12
  */
 public class NdVariable extends NdBinding {
-	//public static final FieldShort VARIABLE_FLAGS;
+	public static final FieldShort VARIABLE_FLAGS;
 	public static final FieldManyToOne<NdTypeSignature> TYPE;
 	public static final FieldInt VARIABLE_ID;
 	public static final FieldManyToOne<NdMethod> DECLARING_METHOD;
@@ -35,14 +36,11 @@ public class NdVariable extends NdBinding {
 	@SuppressWarnings("hiding")
 	public static StructDef<NdVariable> type;
 
-//	public static final int FLG_VARIABLE_FIELD 				= 0x01;
-//	public static final int FLG_VARIABLE_ENUM_CONSTANT 		= 0x02;
-//	public static final int FLG_VARIABLE_PARAMETER 			= 0x04;
-//	public static final int FLG_VARIABLE_EFFECTIVELY_FINAL 	= 0x08;
+	public static final int FLG_GENERIC_SIGNATURE_PRESENT 	= 0x01;
 
 	static {
 		type = StructDef.create(NdVariable.class, NdBinding.type);
-		//VARIABLE_FLAGS = type.addShort();
+		VARIABLE_FLAGS = type.addShort();
 		TYPE = FieldManyToOne.create(type, NdTypeSignature.VARIABLES_OF_TYPE);
 		VARIABLE_ID = type.addInt();
 		DECLARING_METHOD = FieldManyToOne.create(type, NdMethod.DECLARED_VARIABLES);
@@ -62,15 +60,15 @@ public class NdVariable extends NdBinding {
 
 		PARENT.put(getNd(), this.address, parent);
 	}
-//
-//	private boolean hasVariableFlag(int toTest) {
-//		return (VARIABLE_FLAGS.get(getNd(), this.address) & toTest) != 0;
-//	}
-//
-//	private void setVariableFlag(int toSet) {
-//		int newFlags = VARIABLE_FLAGS.get(getNd(), this.address) | toSet;
-//		VARIABLE_FLAGS.put(getNd(), this.address, (short)newFlags);
-//	}
+
+	public boolean hasVariableFlag(int toTest) {
+		return (VARIABLE_FLAGS.get(getNd(), this.address) & toTest) != 0;
+	}
+
+	public void setVariableFlag(int toSet) {
+		int newFlags = VARIABLE_FLAGS.get(getNd(), this.address) | toSet;
+		VARIABLE_FLAGS.put(getNd(), this.address, (short)newFlags);
+	}
 
 	public void setName(char[] name) {
 		NAME.put(getNd(), this.address, name);
