@@ -100,8 +100,8 @@ public class IndexTester {
 
 		compareAnnotations(contextPrefix, expectedBinaryAnnotations, actualBinaryAnnotations);
 
-		compareGenericSignatures(contextPrefix + ": The generic signature did not match", expected.getGenericSignature(), //$NON-NLS-1$
-					actual.getGenericSignature());
+		compareGenericSignatures(contextPrefix + ": The generic signature did not match", //$NON-NLS-1$
+				expected.getGenericSignature(), actual.getGenericSignature());
 
 		assertEquals(contextPrefix + ": The enclosing method name did not match", expected.getEnclosingMethod(), //$NON-NLS-1$
 				actual.getEnclosingMethod());
@@ -116,7 +116,8 @@ public class IndexTester {
 				throw new IllegalStateException(contextPrefix + "Expected fields was null -- actual fields were not"); //$NON-NLS-1$
 			}
 			if (expectedFields.length != actualFields.length) {
-				throw new IllegalStateException(contextPrefix + "The expected and actual number of fields did not match"); //$NON-NLS-1$
+				throw new IllegalStateException(
+						contextPrefix + "The expected and actual number of fields did not match"); //$NON-NLS-1$
 			}
 
 			for (int fieldIdx = 0; fieldIdx < actualFields.length; fieldIdx++) {
@@ -167,6 +168,12 @@ public class IndexTester {
 	private static <T> void assertEquals(String message, T o1, T o2) {
 		if (!isEqual(o1, o2)) {
 			throw new IllegalStateException(message + ": expected = " + getString(o1) + ", actual = " + getString(o2)); //$NON-NLS-1$//$NON-NLS-2$
+		}
+	}
+
+	private static <T> void assertNull(String message, T o1) {
+		if (o1 != null) {
+			throw new IllegalStateException(message + ": expected = null" + ", actual = " + getString(o1)); //$NON-NLS-1$//$NON-NLS-2$
 		}
 	}
 
@@ -327,15 +334,16 @@ public class IndexTester {
 		assertEquals(contextPrefix + ": The default values didn't match.", expectedMethod.getDefaultValue(), //$NON-NLS-1$
 				actualMethod.getDefaultValue());
 
-		assertEquals(contextPrefix + ": The exception type names did not match.", expectedMethod.getExceptionTypeNames(), //$NON-NLS-1$
-				actualMethod.getExceptionTypeNames());
+		assertEquals(contextPrefix + ": The exception type names did not match.", //$NON-NLS-1$
+				expectedMethod.getExceptionTypeNames(), actualMethod.getExceptionTypeNames());
 
-		compareGenericSignatures(contextPrefix + ": The method's generic signature did not match", expectedMethod.getGenericSignature(), //$NON-NLS-1$
-				actualMethod.getGenericSignature());
+		compareGenericSignatures(contextPrefix + ": The method's generic signature did not match", //$NON-NLS-1$
+				expectedMethod.getGenericSignature(), actualMethod.getGenericSignature());
 
 		assertEquals(contextPrefix + ": The method descriptors did not match.", expectedMethod.getMethodDescriptor(), //$NON-NLS-1$
 				actualMethod.getMethodDescriptor());
-		assertEquals(contextPrefix + ": The modifiers didn't match.", expectedMethod.getModifiers(), actualMethod.getModifiers()); //$NON-NLS-1$
+		assertEquals(contextPrefix + ": The modifiers didn't match.", expectedMethod.getModifiers(), //$NON-NLS-1$
+				actualMethod.getModifiers());
 
 		char[] classFileName = "".toCharArray(); //$NON-NLS-1$
 		int minAnnotatedParameters = Math.min(expectedMethod.getAnnotatedParametersCount(),
@@ -353,8 +361,10 @@ public class IndexTester {
 					actualMethod.getParameterAnnotations(idx, classFileName));
 		}
 
-		assertEquals(contextPrefix + ": The selectors did not match", expectedMethod.getSelector(), actualMethod.getSelector()); //$NON-NLS-1$
-		assertEquals(contextPrefix + ": The tag bits did not match", expectedMethod.getTagBits(), actualMethod.getTagBits()); //$NON-NLS-1$
+		assertEquals(contextPrefix + ": The selectors did not match", expectedMethod.getSelector(), //$NON-NLS-1$
+				actualMethod.getSelector());
+		assertEquals(contextPrefix + ": The tag bits did not match", expectedMethod.getTagBits(), //$NON-NLS-1$
+				actualMethod.getTagBits());
 
 		compareTypeAnnotations(contextPrefix, expectedMethod.getTypeAnnotations(), actualMethod.getTypeAnnotations());
 	}
@@ -366,18 +376,20 @@ public class IndexTester {
 	private static void compareGenericSignatures(String message, char[] expected, char[] actual) {
 		// If the whole generic signature was omitted by the compiler, there's nothing to compare
 		if (expected == null) {
-			return;
-		}
+			assertNull(message, actual);
+			
+		} else {
 
-		// If the expected value was missing the optional section for exceptions then it only needs to match
-		// a prefix of the actual signature
-		if (CharArrayUtils.indexOf('^', expected) == -1 && actual.length > expected.length) {
-			if (CharArrayUtils.equals(expected, CharArrayUtils.subarray(actual, 0, expected.length))) {
-				return;
+			// If the expected value was missing the optional section for exceptions then it only needs to match
+			// a prefix of the actual signature
+			if (CharArrayUtils.indexOf('^', expected) == -1 && actual.length > expected.length) {
+				if (CharArrayUtils.equals(expected, CharArrayUtils.subarray(actual, 0, expected.length))) {
+					return;
+				}
 			}
-		}
 
-		assertEquals(message, expected, actual);
+			assertEquals(message, expected, actual);
+		}
 	}
 
 	private static void compareTypeAnnotations(String contextPrefix, IBinaryTypeAnnotation[] expectedTypeAnnotations,
@@ -399,15 +411,15 @@ public class IndexTester {
 
 		for (TypeAnnotationWrapper nextExpected : expectedAnnotations) {
 			if (!actualAnnotations.contains(nextExpected)) {
-				throw new IllegalStateException(
-						contextPrefix + ": The index was missing an expected type annotation: " + nextExpected.toString()); //$NON-NLS-1$
+				throw new IllegalStateException(contextPrefix + ": The index was missing an expected type annotation: " //$NON-NLS-1$
+						+ nextExpected.toString());
 			}
 		}
 
 		for (TypeAnnotationWrapper nextActual : actualAnnotations) {
 			if (!expectedAnnotations.contains(nextActual)) {
-				throw new IllegalStateException(
-						contextPrefix + ": The index contained an unexpected type annotation: " + nextActual.toString()); //$NON-NLS-1$
+				throw new IllegalStateException(contextPrefix + ": The index contained an unexpected type annotation: " //$NON-NLS-1$
+						+ nextActual.toString());
 			}
 		}
 	}
@@ -442,7 +454,7 @@ public class IndexTester {
 		compareAnnotations(contextPrefix, field1.getAnnotations(), field2.getAnnotations());
 		assertEquals(contextPrefix + ": Constants not equal", field1.getConstant(), field2.getConstant()); //$NON-NLS-1$
 		compareGenericSignatures(contextPrefix + ": The generic signature did not match", field1.getGenericSignature(), //$NON-NLS-1$
-					field2.getGenericSignature());
+				field2.getGenericSignature());
 		assertEquals(contextPrefix + ": The modifiers did not match", field1.getModifiers(), field2.getModifiers()); //$NON-NLS-1$
 		assertEquals(contextPrefix + ": The tag bits did not match", field1.getTagBits(), field2.getTagBits()); //$NON-NLS-1$
 		assertEquals(contextPrefix + ": The names did not match", field1.getName(), field2.getName()); //$NON-NLS-1$
