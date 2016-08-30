@@ -12499,4 +12499,51 @@ public void testBug497245b() {
 		"}";
 	formatSource(source);
 }
+/**
+ * https://bugs.eclipse.org/500443 - [formatter] NPE on block comment before 'force-wrap' element
+ */
+public void testBug500443() {
+	this.formatterPrefs.alignment_for_enum_constants = Alignment.M_ONE_PER_LINE_SPLIT + Alignment.M_FORCE;
+	this.formatterPrefs.alignment_for_superclass_in_type_declaration = Alignment.M_ONE_PER_LINE_SPLIT + Alignment.M_FORCE;
+	String source =
+		"public class SomeClass\n" + 
+		"		/* */ extends\n" + 
+		"		Object {\n" + 
+		"	enum MyEnum {\n" + 
+		"		/* 1 */ ONE\n" + 
+		"	}\n" + 
+		"}";
+	formatSource(source);
+}
+/**
+ * https://bugs.eclipse.org/500092 - [formatter] Blank lines at beginning of method body doesn't work in constructors
+ */
+public void testBug500092() {
+	this.formatterPrefs.blank_lines_at_beginning_of_method_body = 1;
+	String source =
+		"public class Test {\n" + 
+		"	public Test() { int a; }\n" + 
+		"}";
+	formatSource(source,
+		"public class Test {\n" + 
+		"	public Test() {\n" + 
+		"\n" + 
+		"		int a;\n" + 
+		"	}\n" + 
+		"}"
+	);
+}
+/**
+ * https://bugs.eclipse.org/500135 - [formatter] 'Parenthesis positions' ignores single member annotations
+ */
+public void testBug500135() {
+	this.formatterPrefs.parenthesis_positions_in_annotation = DefaultCodeFormatterConstants.SEPARATE_LINES;
+	String source =
+		"@SomeAnnotation(\n" + 
+		"	\"some value\"\n" + 
+		")\n" + 
+		"public class Test {\n" + 
+		"}";
+	formatSource(source);
+}
 }
