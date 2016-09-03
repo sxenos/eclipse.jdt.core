@@ -12,16 +12,30 @@
  *******************************************************************************/
 package org.eclipse.jdt.core.tests.util;
 
-import java.io.*;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.FilenameFilter;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.PrintWriter;
 import java.net.ServerSocket;
-import java.util.*;
-import java.util.zip.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Locale;
+import java.util.Map;
+import java.util.StringTokenizer;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
+import java.util.zip.ZipOutputStream;
 
 import org.eclipse.core.resources.IContainer;
 import org.eclipse.core.resources.IResource;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IPath;
 import org.eclipse.core.runtime.IStatus;
+import org.eclipse.core.runtime.Path;
 import org.eclipse.core.runtime.Status;
 import org.eclipse.jdt.core.JavaCore;
 import org.eclipse.jdt.core.compiler.CategorizedProblem;
@@ -38,6 +52,7 @@ import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 import org.eclipse.jdt.internal.compiler.problem.DefaultProblem;
 import org.eclipse.jdt.internal.compiler.problem.DefaultProblemFactory;
 import org.eclipse.jdt.internal.compiler.problem.ProblemReporter;
+import org.eclipse.jdt.internal.core.nd.java.FileFingerprint;
 @SuppressWarnings({ "unchecked", "rawtypes" })
 public class Util {
     // Trace for delete operation
@@ -374,6 +389,13 @@ public static void createJar(String[] pathsAndContents, String[] extraPathsAndCo
 		}
 	}
     zip(classesDir, jarPath);
+    FileFingerprint fingerprint;
+	try {
+		fingerprint = FileFingerprint.create(new Path(jarPath), null);
+	    System.out.println("Created jar " + jarPath + " with fingerprint " + fingerprint);
+	} catch (CoreException e) {
+		System.out.println("Created jar " + jarPath + " -- unable to test fingerprint");
+	}
 }
 public static void createJar(String[] javaPathsAndContents, String jarPath, String compliance) throws IOException {
 	createJar(javaPathsAndContents, null, jarPath, compliance);

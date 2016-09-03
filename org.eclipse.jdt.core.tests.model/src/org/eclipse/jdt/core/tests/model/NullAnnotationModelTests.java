@@ -41,6 +41,7 @@ import org.eclipse.jdt.core.dom.MethodDeclaration;
 import org.eclipse.jdt.core.dom.Modifier;
 import org.eclipse.jdt.core.dom.SingleVariableDeclaration;
 import org.eclipse.jdt.core.dom.TypeDeclaration;
+import org.eclipse.jdt.internal.core.nd.indexer.Indexer;
 import org.osgi.framework.Bundle;
 
 @SuppressWarnings("rawtypes")
@@ -853,6 +854,8 @@ public class NullAnnotationModelTests extends ReconcilerTests {
 			this.createFile(
 				"/Bug460491/src/test2/Derived.java",
 	    			c2SourceString);
+
+			Indexer.getInstance().waitForIndex(null);
 
 			char[] c2SourceChars = c2SourceString.toCharArray();
 			this.problemRequestor.initialize(c2SourceChars);

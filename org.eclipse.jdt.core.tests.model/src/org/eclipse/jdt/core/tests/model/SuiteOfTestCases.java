@@ -14,6 +14,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.Set;
 
+import org.eclipse.jdt.internal.core.nd.indexer.Indexer;
 import org.eclipse.test.internal.performance.PerformanceMeterFactory;
 
 import junit.extensions.TestSetup;
@@ -124,12 +125,14 @@ public class SuiteOfTestCases extends org.eclipse.jdt.core.tests.junit.extension
 	 * Setup the test suite once before all test cases run.
 	 */
 	public void setUpSuite() throws Exception {
+		Indexer.getInstance().enableAutomaticIndexing(false);
 	}
 
 	/**
 	 * Tear down the test suite once after all test cases have run.
 	 */
 	public void tearDownSuite() throws Exception {
+		Indexer.getInstance().enableAutomaticIndexing(true);
 	}
 
 	@Override
@@ -140,6 +143,7 @@ public class SuiteOfTestCases extends org.eclipse.jdt.core.tests.junit.extension
 
 	@Override
 	protected void tearDown() throws Exception {
+		Indexer.getInstance().waitForIndex(null);
 		FreezeMonitor.done();
 		super.tearDown();
 	}

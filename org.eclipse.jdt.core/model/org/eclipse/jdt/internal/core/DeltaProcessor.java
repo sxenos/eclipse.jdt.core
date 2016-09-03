@@ -634,6 +634,7 @@ public class DeltaProcessor {
 			// just report a change to the resource (see https://bugs.eclipse.org/bugs/show_bug.cgi?id=59500)
 			currentDelta().changed(element, IJavaElementDelta.F_PRIMARY_RESOURCE);
 		} else {
+			System.out.println("About to close the element " + element);
 			close(element);
 			int flags = IJavaElementDelta.F_CONTENT;
 			if (element instanceof JarPackageFragmentRoot){
@@ -801,6 +802,7 @@ public class DeltaProcessor {
 				}
 			}
 			HashSet elementsToRefresh = this.state.removeExternalElementsToRefresh();
+			System.out.println("About to do external refresh on elements: " + elementsToRefresh);
 			boolean hasDelta = elementsToRefresh != null && createExternalArchiveDelta(elementsToRefresh, monitor);
 			if (hasDelta){
 				IJavaElementDelta[] projectDeltas = this.currentDelta.getAffectedChildren();
@@ -1020,6 +1022,7 @@ public class DeltaProcessor {
 							if (VERBOSE){
 								System.out.println("- External JAR CHANGED, affecting root: "+root.getElementName()); //$NON-NLS-1$
 							}
+							System.out.println("About to call contentChanged"); //$NON-NLS-1$
 							// TODO(sxenos): this is causing each change event for an external jar file to be fired twice.
 							// We need to preserve the clearing of cached information in the jar but defer the actual firing of
 							// the event until after the indexer has processed the jar.

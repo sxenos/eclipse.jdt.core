@@ -104,9 +104,13 @@ public void tearDownSuite() throws Exception {
  */
 public void testAddExternalLibFolder1() throws CoreException {
 	try {
+		System.out.println("LT: 1");
 		IJavaProject p = createJavaProject("P");
+		System.out.println("LT: 2");
 		createExternalFolder("externalLib");
+		System.out.println("LT: 3");
 		setClasspath(p, new IClasspathEntry[] {JavaCore.newLibraryEntry(new Path(getExternalResourcePath("externalLib")), null, null)});
+		System.out.println("LT: 4");
 		assertElementDescendants(
 			"Unexpected project content",
 			"P\n" +
@@ -114,6 +118,7 @@ public void testAddExternalLibFolder1() throws CoreException {
 			"    <default> (...)",
 			p
 		);
+		System.out.println("LT: 5");
 	} finally {
 		deleteExternalResource("externalLib");
 		deleteProject("P");
@@ -579,10 +584,15 @@ public void testChangeExternalLibFolder2() throws CoreException, IOException {
  */
 public void testChangeZIPArchive1() throws CoreException, IOException {
 	try {
+		System.out.println("LT: 21");
 		org.eclipse.jdt.core.tests.util.Util.createEmptyJar(getExternalResourcePath("externalLib.abc"), JavaCore.VERSION_1_4);
+		System.out.println("LT: 22");
 		IJavaProject p = createJavaProject("P", new String[0], new String[] {getExternalResourcePath("externalLib.abc")}, "bin");
+		System.out.println("LT: 23");
 		refreshExternalArchives(p);
+		System.out.println("LT: 24");
 		expandAll(p);
+		System.out.println("LT: 25");
 
 		createJar(
 			new String[] {
@@ -592,7 +602,9 @@ public void testChangeZIPArchive1() throws CoreException, IOException {
 				"}"
 			},
 			getExternalResourcePath("externalLib.abc"));
+		System.out.println("LT: 26");
 		refreshExternalArchives(p);
+		System.out.println("LT: 27");
 		assertElementDescendants(
 			"Unexpected project content",
 			"P\n" +
@@ -615,6 +627,7 @@ public void testChangeZIPArchive1() throws CoreException, IOException {
  */
 public void testChangeZIPArchive2() throws CoreException, IOException {
 	try {
+		System.out.println("LT: 10");
 		createJar(
 			new String[] {
 				"p/X.java",
@@ -623,9 +636,13 @@ public void testChangeZIPArchive2() throws CoreException, IOException {
 				"}"
 			},
 			getExternalResourcePath("externalLib.abc"));
+		System.out.println("LT: 11");
 		IJavaProject p = createJavaProject("P", new String[0], new String[] {getExternalResourcePath("externalLib.abc")}, "bin");
+		System.out.println("LT: 12");
 		refreshExternalArchives(p);
+		System.out.println("LT: 13");
 		expandAll(p);
+		System.out.println("LT: 14");
 
 		createJar(
 			new String[] {
@@ -635,7 +652,9 @@ public void testChangeZIPArchive2() throws CoreException, IOException {
 				"}"
 			},
 			getExternalResourcePath("externalLib.abc"));
+		System.out.println("LT: 15");
 		refreshExternalArchives(p);
+		System.out.println("LT: 16");
 		assertElementDescendants(
 			"Unexpected project content",
 			"P\n" +
