@@ -12546,4 +12546,65 @@ public void testBug500135() {
 		"}";
 	formatSource(source);
 }
+/**
+ * https://bugs.eclipse.org/500096 - [formatter] Indent declarations within enum declaration doesn't affect enum constants
+ */
+public void testBug500096a() {
+	this.formatterPrefs.indent_body_declarations_compare_to_enum_declaration_header = false;
+	String source =
+		"public enum Test {\n" + 
+		"AAA, BBB;\n" + 
+		"Test() {\n" + 
+		"}\n" + 
+		"}";
+	formatSource(source);
+}
+/**
+ * https://bugs.eclipse.org/500096 - [formatter] Indent declarations within enum declaration doesn't affect enum constants
+ */
+public void testBug500096b() {
+	this.formatterPrefs.indent_body_declarations_compare_to_enum_declaration_header = false;
+	this.formatterPrefs.alignment_for_enum_constants = Alignment.M_COMPACT_SPLIT + Alignment.M_INDENT_BY_ONE;
+	String source =
+		"public enum Test {\n" + 
+		"	AAA, BBB;\n" + 
+		"Test() {\n" + 
+		"}\n" + 
+		"}";
+	formatSource(source);
+}
+/**
+ * https://bugs.eclipse.org/500093 - [formatter] AssertionError with 'Next line on wrap' for array initializers
+ */
+public void testBug500093() {
+	this.formatterPrefs.brace_position_for_array_initializer = DefaultCodeFormatterConstants.NEXT_LINE_ON_WRAP;
+	this.formatterPrefs.page_width = 60;
+	this.formatterPrefs.use_tabs_only_for_leading_indentations = true;
+	String source =
+		"public class SomeClass {\n" + 
+		"	void foo() {\n" + 
+		"		Arrays.asList(new String[] { \"ddd\", \"eee\", \"fff\" });\n" + 
+		"		Arrays.asList(new String[] { \"a\", \"b\", \"c\" },\n" + 
+		"		        new String[]\n" + 
+		"		        { \"a\", \"b\", \"c\", });\n" + 
+		"		Arrays.asList(//\n" + 
+		"		        new String[]\n" + 
+		"		        { \"ddd\", \"eee\", \"fff\" });\n" + 
+		"		Arrays.asList(\n" + 
+		"		        new String[]\n" + 
+		"		        { \"eedd\", \"eee\", \"fff\" });\n" + 
+		"		Arrays.asList(\n" + 
+		"		        new String[]\n" + 
+		"		        { \"aa\", \"bb\", \"cc\", \"dd\", \"ee\", \"ff\", \"gg\",\n" + 
+		"		                \"hh\", \"ii\" });\n" + 
+		"		String[][] test = { { \"aaaaaa\", \"bbbbb\", \"ccccc\" },\n" + 
+		"		        { \"aaaa\", \"bb\", \"ccc\" } };\n" + 
+		"		test[123456 //\n" + 
+		"		        * (234567 + 345678 + 456789 - 567890\n" + 
+		"		                - 678901)] = new String[]\n" + 
+		"		                { \"a\", \"b\", \"c\" };\n" + 
+		"	}\n" + 
+		"}";
+	formatSource(source);
+}
 }
