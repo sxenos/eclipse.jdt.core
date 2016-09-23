@@ -586,13 +586,6 @@ public class IndexBinaryType implements IBinaryType {
 		};
 	}
 
-	private static void buildAnnotations(List<IBinaryTypeAnnotation> result, ITypeAnnotationBuilder builder,
-			List<NdAnnotation> annotations) {
-		for (NdAnnotation next : annotations) {
-			result.add(builder.build(createBinaryAnnotation(next)));
-		}
-	}
-
 	public void initSimpleAttributes() {
 		if (!this.simpleAttributesInitialized) {
 			this.simpleAttributesInitialized = true;
