@@ -19,7 +19,6 @@ import org.eclipse.jdt.internal.core.nd.Nd;
 
 /**
  * Holds a reference to an NdType that can be retained while releasing and reacquiring a read lock.
- * @since 3.12
  */
 public final class TypeRef implements Supplier<NdType> {
 	final DatabaseRef<NdType> ref;
